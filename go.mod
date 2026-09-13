@@ -1,3 +1,3 @@
-module github.com/uvwt/agentdock-protocol
+module github.com/Serialeo/agentdock-protocol
 
 go 1.26.3

@@ -2,12 +2,9 @@ package mcpcontract
 
 const (
 	ToolAgentDockContext       = "agentdock_context"
-<<<<<<< HEAD
-=======
 	ToolProjectList            = "project_list"
 	ToolProjectOpen            = "project_open"
 	ToolProjectContext         = "project_context"
->>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 	ToolRecallSearch           = "recall_search"
 	ToolRecallRead             = "recall_read"
 	ToolRecallWrite            = "recall_write"
@@ -26,20 +23,29 @@ var toolNames = []string{
 	ToolWorkflowTemplateManage,
 }
 
-<<<<<<< HEAD
-=======
 var nexusOnlyToolNames = []string{
 	ToolProjectList,
 	ToolProjectOpen,
 	ToolProjectContext,
 }
 
->>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 // ToolNames returns the canonical model-facing tools shared by AgentDock and NexusDock.
 func ToolNames() []string { return append([]string(nil), toolNames...) }
 
+// NexusToolNames returns all canonical NexusDock-facing tools, including the
+// Project tools that are intentionally not exposed by standalone AgentDock.
+func NexusToolNames() []string {
+	result := append([]string(nil), toolNames...)
+	return append(result, nexusOnlyToolNames...)
+}
+
 func IsCanonicalTool(name string) bool {
 	for _, candidate := range toolNames {
+		if candidate == name {
+			return true
+		}
+	}
+	for _, candidate := range nexusOnlyToolNames {
 		if candidate == name {
 			return true
 		}
@@ -59,11 +65,7 @@ func AnnotationContract(name string) (Annotations, bool) {
 	destructive := true
 	var idempotent *bool
 	switch name {
-<<<<<<< HEAD
-	case ToolAgentDockContext, ToolRecallSearch, ToolRecallRead:
-=======
 	case ToolAgentDockContext, ToolProjectList, ToolRecallSearch, ToolRecallRead:
->>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 		readOnly = true
 		destructive = false
 	case ToolProjectOpen, ToolProjectContext:

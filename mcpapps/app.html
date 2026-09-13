@@ -464,29 +464,6 @@ pre{margin:8px 0 0;max-height:420px;overflow:auto;border-top:1px solid var(--ad-
     compactShell({action:"call",title,className:"result-toggle"},footer?[footer]:[],fragment);
   }
 
-<<<<<<< HEAD
-  function renderArtifact(data){
-    const fragment=document.createDocumentFragment();
-    const title=data.filename||data.artifact_id||t("artifact");
-    const type=data.archive===true?"tar.gz":data.mime_type||t("file");
-    headline(fragment,"publish",title);
-    metaLine(fragment,[data.expires_at?t("temporaryLink"):"",data.artifact_id||""]);
-    metricStrip(fragment,[
-      {label:t("type"),value:type},{label:t("size"),value:humanBytes(data.size_bytes)},{label:t("dimensions"),value:data.width&&data.height?data.width+" × "+data.height:""}
-    ]);
-    detailFields(fragment,[
-      {label:t("artifactId"),value:data.artifact_id,mono:true},{label:t("expires"),value:data.expires_at},{label:"SHA-256",value:data.sha256,mono:true},{label:t("signedUrl"),value:data.url,href:data.url,mono:true}
-    ]);
-    const compactRows=[];
-    const meta=[type,humanBytes(data.size_bytes),data.width&&data.height?data.width+"×"+data.height:""].filter(Boolean).join(" · ");
-    if(meta)compactRows.push(el("span","compact-meta-row",meta));
-    const footer=compactResultFooter(data.expires_at?t("temporaryLink"):t("published"),data.artifact_id||"");
-    if(footer)compactRows.push(footer);
-    compactShell({action:"publish",title,className:"result-toggle"},compactRows,fragment);
-  }
-
-=======
->>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
   function appendNodeAgentContext(parent,data){
     const skills=contextItems(data.skills);
     const commonSkillIndex=isObject(data.common_skills)?data.common_skills:{};
@@ -554,7 +531,6 @@ pre{margin:8px 0 0;max-height:420px;overflow:auto;border-top:1px solid var(--ad-
         acp:node.context.acp,
         workflow_templates:shared.workflow_templates,
         recall:shared.recall,
-        rules:shared.rules,
         warnings:node.context.warnings
       });
       requestAnimationFrame(reportSize);

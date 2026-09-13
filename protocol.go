@@ -1,12 +1,8 @@
 package protocol
 
-<<<<<<< HEAD
-const ConnectionProtocolVersion = "2"
-=======
 // ConnectionProtocolVersion is intentionally incompatible with the legacy Bridge v3 wire.
 // Generation 4 requires Project-scoped execution context for model-facing OS tool calls.
 const ConnectionProtocolVersion = "4"
->>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 
 const (
 	MessageNodeHello     = "node.hello"

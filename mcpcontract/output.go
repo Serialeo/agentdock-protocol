@@ -7,8 +7,6 @@ func OutputSchema(name string) (map[string]any, bool) {
 	var required []string
 	strict := false
 	switch name {
-<<<<<<< HEAD
-=======
 	case ToolProjectList:
 		props["projects"] = map[string]any{
 			"type":        "array",
@@ -44,7 +42,6 @@ func OutputSchema(name string) (map[string]any, bool) {
 		props["delivery"] = projectContextDeliverySchema()
 		required = []string{"work_session_id", "project", "deployment", "target", "delivery"}
 		strict = true
->>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 	case ToolRecallSearch:
 		props["recall_endpoint"] = stringProperty("NexusDock Recall endpoint.")
 		props["recall_kind"] = stringProperty("Search kind used.")
@@ -259,7 +256,7 @@ func workTargetSchema() map[string]any {
 func LocalAgentDockContextOutputSchema() map[string]any {
 	props := localContextProperties(true)
 	props["runtime"] = agentDockRuntimeSchema()
-	return strictObject(props, "runtime", "skills", "dynamic_mcp", "workflow_templates", "rules")
+	return strictObject(props, "runtime", "skills", "common_skills", "dynamic_mcp", "workflow_templates")
 }
 
 func FleetAgentDockContextOutputSchema() map[string]any {
@@ -269,42 +266,19 @@ func FleetAgentDockContextOutputSchema() map[string]any {
 			"source": stringProperty("Context section identifier."), "message": stringProperty("Safe warning message."),
 		}, "required": []string{"source", "message"}, "additionalProperties": false,
 	}
-<<<<<<< HEAD
-	rules := map[string]any{"type": "array", "items": map[string]any{"type": "string"}}
-	local := strictObject(localContextProperties(false), "skills", "dynamic_mcp", "rules")
-=======
 	local := strictObject(localContextProperties(false), "skills", "common_skills", "dynamic_mcp")
->>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 	shared := strictObject(map[string]any{
 		"workflow_templates": map[string]any{"type": "array", "items": item},
 		"recall": strictObject(map[string]any{
 			"enabled": booleanProperty("Whether NexusDock Recall is available."),
 			"items":   map[string]any{"type": "array", "items": item},
 		}, "enabled", "items"),
-<<<<<<< HEAD
-		"rules":    rules,
-		"warnings": map[string]any{"type": "array", "items": warning},
-	}, "workflow_templates", "recall", "rules")
-=======
 		"warnings": map[string]any{"type": "array", "items": warning},
 	}, "workflow_templates", "recall")
->>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 	return strictObject(map[string]any{
 		"nodes": map[string]any{
 			"type": "array", "description": "Enabled AgentDock nodes and their node-local context.",
 			"items": strictObject(map[string]any{
-<<<<<<< HEAD
-				"node_id":      map[string]any{"type": "string"},
-				"name":         map[string]any{"type": "string"},
-				"online":       map[string]any{"type": "boolean"},
-				"version":      map[string]any{"type": "string"},
-				"os":           map[string]any{"type": "string"},
-				"arch":         map[string]any{"type": "string"},
-				"capabilities": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
-				"context":      local,
-				"error":        map[string]any{"type": "string"},
-			}, "node_id", "name", "online", "capabilities"),
-=======
 				"node_id":           map[string]any{"type": "string"},
 				"name":              map[string]any{"type": "string"},
 				"online":            map[string]any{"type": "boolean"},
@@ -316,7 +290,6 @@ func FleetAgentDockContextOutputSchema() map[string]any {
 				"context":           local,
 				"error":             map[string]any{"type": "string"},
 			}, "node_id", "name", "online", "capabilities", "capability_status"),
->>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 		},
 		"shared": shared,
 	}, "nodes", "shared")
@@ -338,9 +311,11 @@ func localContextProperties(includeShared bool) map[string]any {
 	commonSkills := strictObject(map[string]any{
 		"root":      stringProperty("Common Agent Skills root path."),
 		"total":     integerProperty("Total valid common Skills discovered before truncation."),
+		"effective": integerProperty("Common Skills remaining after installed AgentDock Skills shadow same-name entries."),
+		"shadowed":  integerProperty("Common Skills hidden because an installed AgentDock Skill takes precedence."),
 		"truncated": booleanProperty("Whether the common Skill index was truncated."),
 		"items":     map[string]any{"type": "array", "items": commonSkill},
-	}, "root", "total", "truncated", "items")
+	}, "root", "total", "effective", "shadowed", "truncated", "items")
 	commonSkills["description"] = "Lower-priority common Agent Skill capability index; installed AgentDock Skills take precedence on conflicts."
 	dynamicItem := dynamicMCPItemSchema()
 	indexItem := contextItemSchema(false)
@@ -356,7 +331,6 @@ func localContextProperties(includeShared bool) map[string]any {
 		"acp": strictObject(map[string]any{
 			"enabled": booleanProperty("Whether ACP is enabled."), "agent": stringProperty("Configured ACP agent name."), "description": stringProperty("Short ACP usage orientation."),
 		}, "enabled", "agent", "description"),
-		"rules":    map[string]any{"type": "array", "description": "Operational rules for using this AgentDock runtime.", "items": map[string]any{"type": "string"}},
 		"warnings": map[string]any{"type": "array", "description": "Best-effort context sections that could not be loaded.", "items": warning},
 	}
 	if includeShared {

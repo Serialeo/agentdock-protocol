@@ -8,11 +8,6 @@ import (
 
 func TestCanonicalToolContractsAreCompleteAndFresh(t *testing.T) {
 	if got := len(ToolNames()); got != 7 {
-<<<<<<< HEAD
-		t.Fatalf("tool count = %d, want 7", got)
-	}
-	for _, name := range ToolNames() {
-=======
 		t.Fatalf("shared tool count = %d, want 7", got)
 	}
 	if got := len(NexusToolNames()); got != 10 {
@@ -37,7 +32,6 @@ func TestCanonicalToolContractsAreCompleteAndFresh(t *testing.T) {
 		t.Fatal("legacy agentdock_guidance remains canonical in the v4 contract")
 	}
 	for _, name := range NexusToolNames() {
->>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 		input, ok := InputSchema(name)
 		if !ok {
 			t.Fatalf("missing input schema for %s", name)
@@ -231,16 +225,6 @@ func TestContextHasExplicitLocalAndFleetProfiles(t *testing.T) {
 			t.Fatalf("common_skills is missing %s", name)
 		}
 	}
-<<<<<<< HEAD
-	for _, required := range local["required"].([]string) {
-		if required == "common_skills" {
-			t.Fatal("common_skills must remain optional for rolling compatibility with older AgentDock nodes")
-		}
-	}
-	nodes := fleet["properties"].(map[string]any)["nodes"].(map[string]any)
-	node := nodes["items"].(map[string]any)
-	nodeContext := node["properties"].(map[string]any)["context"].(map[string]any)
-=======
 	requireStringMember(t, local["required"].([]string), "common_skills", "local context required")
 	nodes := fleet["properties"].(map[string]any)["nodes"].(map[string]any)
 	node := nodes["items"].(map[string]any)
@@ -256,7 +240,6 @@ func TestContextHasExplicitLocalAndFleetProfiles(t *testing.T) {
 		t.Fatal("legacy Global Instructions metadata remains in the v4 fleet context")
 	}
 	nodeContext := nodeProperties["context"].(map[string]any)
->>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 	if _, ok := nodeContext["properties"].(map[string]any)["common_skills"]; !ok {
 		t.Fatal("fleet node context is missing common_skills")
 	}
@@ -314,4 +297,14 @@ func TestRecallWriteBehaviorVectorsCoverSafetyBoundary(t *testing.T) {
 			t.Fatalf("missing behavior vector %q", name)
 		}
 	}
+}
+
+func requireStringMember(t *testing.T, values []string, want, label string) {
+	t.Helper()
+	for _, value := range values {
+		if value == want {
+			return
+		}
+	}
+	t.Fatalf("%s missing %q: %#v", label, want, values)
 }
