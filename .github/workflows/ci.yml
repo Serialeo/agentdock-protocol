@@ -35,3 +35,16 @@ jobs:
         run: go test -race ./... -count=1
       - name: Build
         run: go build ./...
+
+  app-controller:
+    name: Continuation App behavior
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test controller Host behavior
+        run: node --test mcpapps/continuation_test.mjs

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Work continuation</title>
+<style>
+:root{color-scheme:light dark;font:14px/1.5 system-ui,sans-serif;background:transparent;color:var(--color-text-primary,CanvasText)}
+*{box-sizing:border-box}body{margin:0}main{padding:18px;border:1px solid var(--color-border-primary,GrayText);border-radius:12px;background:var(--color-background-primary,Canvas)}
+h1{font-size:16px;margin:0 0 8px}p{margin:8px 0}#status{font-weight:600}#detail,#scope,#budget{font-size:12px;color:var(--color-text-secondary,GrayText);overflow-wrap:anywhere}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}button{border:1px solid currentColor;border-radius:7px;background:transparent;color:inherit;padding:9px 16px;font:600 13px system-ui;cursor:pointer}button:disabled{opacity:.45;cursor:default}button:focus-visible{outline:2px solid Highlight;outline-offset:3px}#pause{color:var(--color-text-danger,#b42318)}[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main aria-labelledby="title">
+<h1 id="title">Work continuation</h1>
+<p id="status" role="status" aria-live="polite">Connecting to host…</p>
+<p id="scope"></p><p id="budget"></p><p id="detail"></p>
+<div class="actions"><button id="enable" type="button" disabled>Enable in this view</button><button id="pause" type="button" disabled>Pause continuation</button></div>
+</main>
+<script>
+(()=>{
+  "use strict";
+  const element=id=>document.getElementById(id);
+  const ui={title:element("title"),status:element("status"),scope:element("scope"),budget:element("budget"),detail:element("detail"),enable:element("enable"),pause:element("pause")};
+  const object=value=>value!==null&&typeof value==="object"&&!Array.isArray(value);
+  const words={
+    en:{title:"Work continuation",connecting:"Connecting to host…",waiting:"Waiting for an explicit WorkSession presentation.",ready:"Ready to continue",consent:"Automatic continuation requires your confirmation in this view.",enable:"Enable in this view",pause:"Pause continuation",paused:"Continuation paused",pausedDetail:"Ask the assistant to enable this WorkSession again, then allow automatic messages in this view.",pausing:"Pausing continuation…",unsupported:"This host does not support continuation.",unsupportedDetail:"The host must support server tool calls and text messages. Continue manually in the conversation.",unknown:"Delivery needs inspection",unknownDetail:"Delivery may already have happened. Ask the assistant to inspect the conversation and saved results before recovering this WorkSession. This controller will not resend the message.",error:"Connection interrupted",errorDetail:"Checking state again. If this view was replaced or its binding expired, explicitly present this WorkSession again.",hidden:"Waiting for this view to become visible",hiddenDetail:"Commands and saved results can continue while this page is closed. Automatic messages require a visible controller.",active:"Waiting for command results",accepted:"Continuation requested",acceptedDetail:"The host accepted the message. Waiting for the model to consume and settle the work.",rejected:"Host rejected continuation",rejectedDetail:"Check the conversation before explicitly recovering the session. No automatic retry will be sent.",inspection:"Work needs inspection",inspectionDetail:"Review the saved results and unresolved work before explicitly recovering this WorkSession.",unbound:"This view is no longer bound",unboundDetail:"Explicitly present the intended WorkSession again. A recent session or conversation title cannot restore this binding.",budget:"Automatic rounds: {used} / {max}",preparing:"Preparing continuation…",enabling:"Enabling continuation…",pauseFailed:"Pause could not be confirmed",pauseFailedDetail:"This view has stopped sending. Retry Pause to confirm the server state; other views may still be active."},
+    zh:{title:"工作会话续跑",connecting:"正在连接宿主…",waiting:"等待显式呈现的 WorkSession。",ready:"可以续跑",consent:"请在此视图中确认开启自动续跑。",enable:"在此视图开启",pause:"暂停续跑",paused:"续跑已暂停",pausedDetail:"请让助手重新开启此 WorkSession，再在此视图中允许自动消息。",pausing:"正在暂停续跑…",unsupported:"当前宿主不支持续跑。",unsupportedDetail:"宿主需要支持服务端工具调用和文本消息。请在对话中手动继续。",unknown:"投递需要检查",unknownDetail:"消息可能已送达。请让助手检查对话和保存的结果，再恢复此 WorkSession；控制器不会重发消息。",error:"连接中断",errorDetail:"正在重新检查状态。若视图已被替换或绑定过期，请再次显式呈现此 WorkSession。",hidden:"等待视图恢复可见",hiddenDetail:"关闭页面后命令与结果保存仍可继续。自动消息需要可见的控制器。",active:"等待命令结果",accepted:"已请求续跑",acceptedDetail:"宿主已接受消息，正在等待模型领取并结算工作。",rejected:"宿主拒绝续跑",rejectedDetail:"请检查对话后再显式恢复会话。不会自动重试投递。",inspection:"工作需要检查",inspectionDetail:"请检查保存的结果和未结算工作，再显式恢复此 WorkSession。",unbound:"此视图的绑定已失效",unboundDetail:"请再次显式呈现目标 WorkSession。不能通过最近会话或对话标题恢复绑定。",budget:"自动轮次：{used} / {max}",preparing:"正在准备续跑…",enabling:"正在开启续跑…",pauseFailed:"未能确认暂停",pauseFailedDetail:"此视图已停止发送。请再次点击暂停以确认服务端状态；其他视图可能仍在运行。"}
+  };
+  let locale=String(navigator.language||"en").toLowerCase().startsWith("zh")?"zh":"en";
+  const t=key=>words[locale][key]||key;
+  const requests=new Map(),preparedAttempts=new Set();
+  let requestID=0,timer=null,epoch=0,identity=null,bound=false,ready=false,initialized=false,closed=false;
+  let inFlight=false,desiredAction=null,optedIn=false,blocked=false,failures=0,lastHeartbeat=0;
+  let snapshot={},notice="connecting",detail="",pendingFinish=null;
+  const bindingID=typeof crypto.randomUUID==="function"?crypto.randomUUID():Array.from(crypto.getRandomValues(new Uint8Array(24)),v=>v.toString(16).padStart(2,"0")).join("");
+  const visible=()=>document.visibilityState==="visible";
+  const current=version=>!closed&&version===epoch;
+  const base=()=>({...identity,binding_id:bindingID});
+  function notify(method,params){if(!closed)window.parent.postMessage({jsonrpc:"2.0",method,params:params||{}},"*")}
+  function rpc(method,params){
+    return new Promise((resolve,reject)=>{
+      if(closed){reject(new Error("closed"));return}
+      const id=++requestID;
+      const timeout=setTimeout(()=>{requests.delete(id);const error=new Error("Request timed out");error.timeout=true;reject(error)},10000);
+      requests.set(id,{resolve,reject,timeout});
+      try{window.parent.postMessage({jsonrpc:"2.0",id,method,params},"*")}catch(error){clearTimeout(timeout);requests.delete(id);reject(error)}
+    });
+  }
+  async function tool(name,args){
+    const result=await rpc("tools/call",{name,arguments:args});
+    if(!object(result)||result.isError){const error=new Error("Tool request rejected");error.rejected=true;throw error}
+    if(!object(result.structuredContent)){throw new Error("Missing authoritative tool state")}
+    return result.structuredContent;
+  }
+  function render(){
+    ui.title.textContent=t("title");ui.enable.textContent=t("enable");ui.pause.textContent=t("pause");
+    ui.status.textContent=t(notice);ui.detail.textContent=t(detail);
+    ui.scope.textContent=identity?identity.work_session_id+" · "+identity.endpoint_id:"";
+    const state=object(snapshot.state)?snapshot.state:{};
+    ui.budget.textContent=Number.isInteger(state.max_rounds)?t("budget").replace("{used}",String(state.rounds_used||0)).replace("{max}",String(state.max_rounds)):"";
+    ui.enable.disabled=!ready||!identity||!visible()||blocked||optedIn||state.enabled===false||desiredAction==="enable";
+    ui.pause.disabled=!ready||!identity||!bound||desiredAction==="pause";
+    notify("ui/notifications/size-changed",{height:Math.ceil(document.documentElement.getBoundingClientRect().height)});
+  }
+  function setNotice(next,explanation=""){notice=next;detail=explanation;render()}
+  function acceptState(data,version){
+    if(!current(version))return false;
+    if(data.controller_generation!==identity.controller_generation||data.work_session_id!==identity.work_session_id||data.endpoint_id!==identity.endpoint_id){
+      blocked=true;optedIn=false;setNotice("unbound","unboundDetail");return false;
+    }
+    snapshot=data;
+    const state=object(data.state)?data.state:{};
+    const status=object(data.wake)?data.wake.state:"";
+    if(state.enabled===false)optedIn=false;
+    if(["delivery_unknown","prepared"].includes(status)){blocked=true;setNotice("unknown","unknownDetail")}
+    else if(status==="delivery_rejected"){blocked=true;setNotice("rejected","rejectedDetail")}
+    else if(status==="consumed"||status==="dispatch_accepted"){blocked=false;setNotice("accepted","acceptedDetail")}
+    else if(["needs_inspection","needs_attention","circuit_open","budget_exhausted","failed"].includes(state.phase)){blocked=true;setNotice("inspection","inspectionDetail")}
+    else if(!blocked){
+      if(!visible())setNotice("hidden","hiddenDetail");
+      else if(!optedIn)setNotice(state.enabled?"ready":"paused",state.enabled?"consent":"pausedDetail");
+      else if(!state.enabled)setNotice("paused","pausedDetail");
+      else if(status==="dispatch_accepted"||status==="consumed")setNotice("accepted","acceptedDetail");
+      else setNotice("active","hiddenDetail");
+    }
+    return true;
+  }
+  function schedule(delay=2000){
+    if(closed)return;
+    clearTimeout(timer);timer=setTimeout(()=>{timer=null;void reconcile()},delay);
+  }
+  async function finish(version){
+    if(!pendingFinish||!visible()||!current(version))return;
+    const report=pendingFinish;
+    const result=await tool("work_wake_finish",{...base(),...report});
+    if(!current(version))return;
+    pendingFinish=null;acceptState(result,version);
+  }
+  async function dispatch(claim,version){
+    const key=identity.controller_generation+":"+claim.attempt_id;
+    if(preparedAttempts.has(key)||!visible()||!current(version)||!optedIn||desiredAction==="pause")return;
+    // prepare 是一次性投递栅栏；包括丢失响应在内，任何情况都不重取消息。
+    preparedAttempts.add(key);
+    const attempt={wake_id:claim.wake_id,attempt_id:claim.attempt_id};
+    let prepared;
+    setNotice("preparing");
+    try{prepared=await tool("work_wake_prepare",{...base(),...attempt})}
+    catch(_){
+      if(current(version)){blocked=true;pendingFinish={...attempt,delivery_status:"delivery_unknown"};setNotice("unknown","unknownDetail");await finish(version)}
+      return;
+    }
+    if(!current(version))return;
+    if(prepared.controller_generation!==identity.controller_generation||prepared.work_session_id!==identity.work_session_id||prepared.endpoint_id!==identity.endpoint_id){blocked=true;setNotice("unbound","unboundDetail");return}
+    if(!visible()||!optedIn||desiredAction==="pause"||typeof prepared.automatic_message!=="string"||!prepared.automatic_message){
+      blocked=true;pendingFinish={...attempt,delivery_status:"delivery_unknown"};setNotice("unknown","unknownDetail");await finish(version);return;
+    }
+    let delivery="delivery_unknown";
+    try{
+      // 消息完全由服务端生成；视图不追加执行参数或自行生成 consume 凭据。
+      const result=await rpc("ui/message",{role:"user",content:[{type:"text",text:prepared.automatic_message}]});
+      delivery=!object(result)?"delivery_unknown":result.isError?"delivery_rejected":"dispatch_accepted";
+    }catch(error){delivery=error.rejected?"delivery_rejected":"delivery_unknown"}
+    if(!current(version))return;
+    pendingFinish={...attempt,delivery_status:delivery};
+    blocked=delivery!=="dispatch_accepted";
+    setNotice(delivery==="dispatch_accepted"?"accepted":delivery==="delivery_rejected"?"rejected":"unknown",delivery==="dispatch_accepted"?"acceptedDetail":delivery==="delivery_rejected"?"rejectedDetail":"unknownDetail");
+    await finish(version);
+  }
+  async function reconcile(){
+    if(inFlight||closed||!ready||!identity)return;
+    inFlight=true;const version=epoch;let acting="";
+    try{
+      if(!bound){
+        if(!visible())return;
+        const result=await tool("work_continuation_bind",{...base(),user_enabled:false});
+        if(!current(version))return;
+        bound=true;acceptState(result,version);
+      }
+      if(desiredAction==="pause"&&visible()){
+        desiredAction=null;acting="pause";
+        const result=await tool("work_continuation_pause",base());
+        if(!current(version))return;
+        optedIn=false;acceptState(result,version);setNotice("paused","pausedDetail");acting="";
+      }
+      if(desiredAction==="enable"&&visible()){
+        desiredAction=null;setNotice("enabling");
+        const result=await tool("work_continuation_bind",{...base(),user_enabled:true});
+        if(!current(version))return;
+        optedIn=true;acceptState(result,version);
+      }
+      if(Date.now()-lastHeartbeat>10000){
+        const result=await tool("work_continuation_heartbeat",base());
+        if(!current(version))return;
+        lastHeartbeat=Date.now();if(!acceptState(result,version))return;
+      }
+      const state=await tool("work_continuation_state",base());
+      if(!acceptState(state,version))return;
+      failures=0;
+      if(!visible())return;
+      await finish(version);
+      if(!current(version)||!optedIn||blocked||desiredAction||!snapshot.state||snapshot.state.enabled!==true)return;
+      if(object(snapshot.wake)&&!["pending","claimed"].includes(snapshot.wake.state))return;
+      const claim=await tool("work_wake_acquire",base());
+      if(!current(version))return;
+      if(!acceptState(claim,version))return;
+      if(claim.wake_id&&claim.attempt_id&&object(claim.wake)&&claim.wake.state==="claimed")await dispatch(claim,version);
+    }catch(_){
+      if(current(version)){
+        failures=Math.min(failures+1,5);
+        if(acting==="pause"){setNotice("pauseFailed","pauseFailedDetail")}
+        else if(!blocked){optedIn=false;setNotice("error","errorDetail")};
+      }
+    }finally{
+      inFlight=false;render();schedule(Math.min(30000,2000*Math.pow(2,failures)));
+    }
+  }
+  function presentation(data){
+    if(!object(data))return;
+    if(!["work_session_id","endpoint_id","binding_secret"].every(key=>typeof data[key]==="string"&&data[key])||!Number.isInteger(data.controller_generation)||data.controller_generation<1)return;
+    if(identity&&identity.work_session_id===data.work_session_id){
+      if(data.controller_generation<=identity.controller_generation)return;
+    }
+    // 完整的 presenter 身份必须一起到达；不拼接不同通知的凭据。
+    identity={work_session_id:data.work_session_id,endpoint_id:data.endpoint_id,controller_generation:data.controller_generation,binding_secret:data.binding_secret};
+    epoch++;bound=false;optedIn=false;blocked=false;desiredAction=null;pendingFinish=null;lastHeartbeat=0;snapshot={};
+    if(initialized&&!ready)setNotice("unsupported","unsupportedDetail");
+    else setNotice(ready?"ready":"connecting",ready?"consent":"");schedule(0);
+  }
+  function hostContext(context){
+    if(!object(context))return;
+    if(typeof context.locale==="string")locale=context.locale.toLowerCase().startsWith("zh")?"zh":"en";
+    document.documentElement.lang=locale==="zh"?"zh-CN":"en";
+    if(context.theme==="light"||context.theme==="dark")document.documentElement.style.colorScheme=context.theme;
+    render();
+  }
+  function teardown(){
+    if(closed)return;
+    closed=true;epoch++;clearTimeout(timer);
+    // 页面卸载不是可靠释放信号，服务端租约决定旧视图何时失效。
+    for(const request of requests.values()){clearTimeout(request.timeout);request.reject(new Error("closed"))}
+    requests.clear();
+  }
+  window.addEventListener("message",event=>{
+    if(event.source!==window.parent||closed||!object(event.data)||event.data.jsonrpc!=="2.0")return;
+    const message=event.data;
+    if(message.id!==undefined&&!message.method){
+      const request=requests.get(message.id);if(!request)return;
+      requests.delete(message.id);clearTimeout(request.timeout);
+      if(message.error){const error=new Error("Host rejected request");error.rejected=true;request.reject(error)}else request.resolve(message.result);
+    }else if(message.method==="ui/notifications/tool-input")presentation(message.params&&message.params.arguments);
+    else if(message.method==="ui/notifications/tool-result"){
+      if(message.params&&message.params.isError)return;
+      const meta=message.params&&message.params._meta;
+      presentation(object(meta)&&object(meta["agentdock/work-continuation"])?meta["agentdock/work-continuation"]:message.params&&message.params.structuredContent);
+    }else if(message.method==="ui/notifications/host-context-changed")hostContext(message.params);
+    else if(message.method==="ui/resource-teardown"){
+      window.parent.postMessage({jsonrpc:"2.0",id:message.id,result:{}},"*");teardown();
+    }
+  });
+  document.addEventListener("visibilitychange",()=>{render();schedule(0)});
+  window.addEventListener("pagehide",teardown);
+  ui.enable.addEventListener("click",()=>{if(!ui.enable.disabled){desiredAction="enable";render();schedule(0)}});
+  ui.pause.addEventListener("click",()=>{if(!ui.pause.disabled){optedIn=false;desiredAction="pause";setNotice("pausing");schedule(0)}});
+  async function initialize(){
+    try{
+      const result=await rpc("ui/initialize",{appInfo:{name:"agentdock-work-continuation",version:"1.0.0"},appCapabilities:{},protocolVersion:"2026-01-26"});
+      if(closed)return;
+      hostContext(result&&result.hostContext);
+      const capabilities=result&&result.hostCapabilities;
+      initialized=true;
+      ready=object(capabilities)&&object(capabilities.serverTools)&&object(capabilities.message)&&object(capabilities.message.text);
+      notify("ui/notifications/initialized",{});
+      if(!ready){setNotice("unsupported","unsupportedDetail");return}
+      setNotice(identity?"ready":"waiting",identity?"consent":"");schedule(0);
+    }catch(_){initialized=true;if(!closed)setNotice("unsupported","unsupportedDetail")}
+  }
+  render();void initialize();
+})();
+</script>
+</body>
+</html>

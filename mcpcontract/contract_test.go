@@ -10,8 +10,8 @@ func TestCanonicalToolContractsAreCompleteAndFresh(t *testing.T) {
 	if got := len(ToolNames()); got != 7 {
 		t.Fatalf("shared tool count = %d, want 7", got)
 	}
-	if got := len(NexusToolNames()); got != 10 {
-		t.Fatalf("Nexus tool count = %d, want 10", got)
+	if got := len(NexusToolNames()); got != 20 {
+		t.Fatalf("Nexus tool count = %d, want 20", got)
 	}
 	projectTools := map[string]bool{
 		ToolProjectList:    true,

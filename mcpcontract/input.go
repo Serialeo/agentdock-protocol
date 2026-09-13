@@ -2,6 +2,9 @@ package mcpcontract
 
 // InputSchema returns a fresh canonical model-facing input schema.
 func InputSchema(name string) (map[string]any, bool) {
+	if schema, ok := continuationInputSchema(name); ok {
+		return schema, true
+	}
 	props := map[string]any{}
 	var required []string
 	switch name {

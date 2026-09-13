@@ -3,6 +3,9 @@ package mcpcontract
 // OutputSchema returns a fresh canonical output schema for tools whose result shape
 // is shared by direct AgentDock and central NexusDock entrypoints.
 func OutputSchema(name string) (map[string]any, bool) {
+	if schema, ok := continuationOutputSchema(name); ok {
+		return schema, true
+	}
 	props := map[string]any{}
 	var required []string
 	strict := false

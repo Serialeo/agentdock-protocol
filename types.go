@@ -31,7 +31,8 @@ type Hello struct {
 }
 
 // ToolDescriptor is the Bridge projection of an MCP tool descriptor.
-// UI resource capability is deliberately absent: per-tool _meta.ui is presentation binding only.
+// UI resource capability is advertised separately; _meta.ui.resourceUri only binds
+// presentation, while _meta.ui.visibility remains an execution exposure contract.
 type ToolDescriptor struct {
 	Name         string         `json:"name"`
 	Title        string         `json:"title,omitempty"`

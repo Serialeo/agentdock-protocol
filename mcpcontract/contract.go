@@ -33,13 +33,17 @@ var nexusOnlyToolNames = []string{
 func ToolNames() []string { return append([]string(nil), toolNames...) }
 
 // NexusToolNames returns all canonical NexusDock-facing tools, including the
-// Project tools that are intentionally not exposed by standalone AgentDock.
+// Project and continuation tools (model/app) that standalone AgentDock does not expose.
 func NexusToolNames() []string {
 	result := append([]string(nil), toolNames...)
-	return append(result, nexusOnlyToolNames...)
+	result = append(result, nexusOnlyToolNames...)
+	return append(result, continuationToolNames...)
 }
 
 func IsCanonicalTool(name string) bool {
+	if _, ok := ToolVisibility(name); ok {
+		return true
+	}
 	for _, candidate := range toolNames {
 		if candidate == name {
 			return true
@@ -61,6 +65,9 @@ type Annotations struct {
 }
 
 func AnnotationContract(name string) (Annotations, bool) {
+	if annotations, ok := continuationAnnotations(name); ok {
+		return annotations, true
+	}
 	readOnly := false
 	destructive := true
 	var idempotent *bool

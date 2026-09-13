@@ -86,12 +86,17 @@ const (
 	ACPStatusUIContract    = "agentdock.acp-status.v1"
 )
 
+const WorkContinuationUIResourceURI = "ui://agentdock/work-continuation"
+const WorkContinuationUIContract = "agentdock.work-continuation.v1"
+
 const MCPAppMIMEType = "text/html;profile=mcp-app"
 
 // UIResourceContract returns the renderer contract bound to one AgentDock MCP App URI.
 // URIs identify resources and remain stable; renderer compatibility evolves through the contract string.
 func UIResourceContract(uri string) (string, bool) {
 	switch uri {
+	case WorkContinuationUIResourceURI:
+		return WorkContinuationUIContract, true
 	case ContextUIResourceURI:
 		return ContextUIContract, true
 	case TaskProgressUIResourceURI:
