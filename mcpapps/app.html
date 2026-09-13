@@ -464,6 +464,7 @@ pre{margin:8px 0 0;max-height:420px;overflow:auto;border-top:1px solid var(--ad-
     compactShell({action:"call",title,className:"result-toggle"},footer?[footer]:[],fragment);
   }
 
+<<<<<<< HEAD
   function renderArtifact(data){
     const fragment=document.createDocumentFragment();
     const title=data.filename||data.artifact_id||t("artifact");
@@ -484,6 +485,8 @@ pre{margin:8px 0 0;max-height:420px;overflow:auto;border-top:1px solid var(--ad-
     compactShell({action:"publish",title,className:"result-toggle"},compactRows,fragment);
   }
 
+=======
+>>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
   function appendNodeAgentContext(parent,data){
     const skills=contextItems(data.skills);
     const commonSkillIndex=isObject(data.common_skills)?data.common_skills:{};
@@ -731,7 +734,6 @@ pre{margin:8px 0 0;max-height:420px;overflow:auto;border-top:1px solid var(--ad-
     if(expectedView==="recall")return Array.isArray(data.results)||typeof data.recall_action==="string";
     if(expectedView==="workflow")return data.action==="match"&&Array.isArray(data.candidates);
     if(expectedView==="dynamic_mcp")return typeof data.name==="string"&&isObject(data.result);
-    if(expectedView==="artifact")return data.artifact_id||data.filename||data.url||data.sha256;
     if(expectedView==="acp_status")return typeof data.action==="string"&&(isObject(data.session)||Array.isArray(data.sessions)||data.session_id||isObject(data.agent)||data.authenticated!==undefined||data.deleted!==undefined);
     return false;
   }
@@ -745,7 +747,6 @@ pre{margin:8px 0 0;max-height:420px;overflow:auto;border-top:1px solid var(--ad-
     else if(expectedView==="recall")renderRecall(data);
     else if(expectedView==="workflow")renderWorkflow(data);
     else if(expectedView==="dynamic_mcp")renderDynamicMCP(data);
-    else if(expectedView==="artifact")renderArtifact(data);
     else renderACP(data);
     requestAnimationFrame(reportSize);
   }

@@ -4,7 +4,47 @@ package mcpcontract
 // is shared by direct AgentDock and central NexusDock entrypoints.
 func OutputSchema(name string) (map[string]any, bool) {
 	props := map[string]any{}
+	var required []string
+	strict := false
 	switch name {
+<<<<<<< HEAD
+=======
+	case ToolProjectList:
+		props["projects"] = map[string]any{
+			"type":        "array",
+			"description": "Projects the authenticated client may enter.",
+			"items":       projectSummarySchema(),
+		}
+		props["count"] = integerProperty("Returned Project count.")
+		required = []string{"projects", "count"}
+		strict = true
+	case ToolProjectOpen:
+		props["work_session_id"] = stringProperty("Bound WorkSession id created or resolved idempotently for this request.")
+		props["status"] = enumProperty("WorkSession state.", "preparing", "ready", "running", "completed", "partial", "failed", "cancelled")
+		props["context_revision"] = stringProperty("Aggregate WorkSession context revision covering Project configuration and prepared Target context revisions.")
+		props["delivery"] = projectContextDeliverySchema()
+		props["project"] = projectSchema()
+		props["deployments"] = map[string]any{
+			"type":        "array",
+			"description": "Project Deployment topology including unavailable Deployments and explicit reasons.",
+			"items":       deploymentViewSchema(),
+		}
+		props["targets"] = map[string]any{
+			"type":        "array",
+			"description": "WorkSession Targets prepared from authorized Deployments. Discovery never implies that all Targets were executed.",
+			"items":       workTargetSchema(),
+		}
+		required = []string{"work_session_id", "status", "context_revision", "delivery", "project", "deployments", "targets"}
+		strict = true
+	case ToolProjectContext:
+		props["work_session_id"] = stringProperty("Bound WorkSession id.")
+		props["project"] = projectSchema()
+		props["deployment"] = deploymentViewSchema()
+		props["target"] = workTargetSchema()
+		props["delivery"] = projectContextDeliverySchema()
+		required = []string{"work_session_id", "project", "deployment", "target", "delivery"}
+		strict = true
+>>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 	case ToolRecallSearch:
 		props["recall_endpoint"] = stringProperty("NexusDock Recall endpoint.")
 		props["recall_kind"] = stringProperty("Search kind used.")
@@ -107,7 +147,113 @@ func OutputSchema(name string) (map[string]any, bool) {
 	default:
 		return nil, false
 	}
+	if strict {
+		return strictObject(props, required...), true
+	}
 	return map[string]any{"type": "object", "properties": props, "required": []string{}, "additionalProperties": true}, true
+}
+
+func projectContextDeliverySchema() map[string]any {
+	return strictObject(map[string]any{
+		"status":           enumProperty("Verified Project Context delivery state. returned means Nexus returned the complete model-visible tool result; host_consumed requires an explicit MCP Host acknowledgment for the same revision.", "returned", "host_consumed"),
+		"context_revision": stringProperty("Context revision this delivery state refers to."),
+	}, "status", "context_revision")
+}
+
+func projectSummarySchema() map[string]any {
+	return strictObject(map[string]any{
+		"id":                         stringProperty("Stable Project id."),
+		"name":                       stringProperty("Project display name."),
+		"revision":                   stringProperty("Opaque Project configuration revision."),
+		"enabled":                    booleanProperty("Whether the Project may be entered."),
+		"deployment_count":           integerProperty("Configured Deployment count."),
+		"available_deployment_count": integerProperty("Deployments currently eligible to become WorkSession Targets."),
+	}, "id", "name", "revision", "enabled", "deployment_count", "available_deployment_count")
+}
+
+func projectSchema() map[string]any {
+	return strictObject(map[string]any{
+		"id":                   stringProperty("Stable Project id."),
+		"name":                 stringProperty("Project display name."),
+		"orchestration_policy": stringProperty("User-authored multi-node collaboration guidance. It never expands hard permissions."),
+		"revision":             stringProperty("Opaque Project configuration revision."),
+		"enabled":              booleanProperty("Whether the Project may be entered."),
+	}, "id", "name", "orchestration_policy", "revision", "enabled")
+}
+
+func deploymentPermissionsSchema() map[string]any {
+	return strictObject(map[string]any{
+		"full_access": booleanProperty("Whether all Project execution capabilities exposed by this Node are allowed. Independent from working_folder."),
+		"files":       enumProperty("Built-in file capability when full_access is false.", "none", "read_only", "read_write"),
+		"shell":       booleanProperty("Whether command execution is allowed when full_access is false. This is not an OS sandbox."),
+		"browser":     booleanProperty("Whether browser capabilities are allowed when full_access is false."),
+		"dynamic_mcp": booleanProperty("Whether configured dynamic MCP calls are allowed when full_access is false."),
+		"acp":         booleanProperty("Whether ACP agent execution is allowed when full_access is false."),
+	}, "full_access", "files", "shell", "browser", "dynamic_mcp", "acp")
+}
+
+func deploymentViewSchema() map[string]any {
+	return strictObject(map[string]any{
+		"id":                  stringProperty("Stable Deployment id."),
+		"project_id":          stringProperty("Owning Project id."),
+		"node_id":             stringProperty("Bound AgentDock node id."),
+		"working_folder":      stringProperty("Optional Node-local Project Folder. Empty means use the Node AgentDock default cwd and do not auto-discover Project AGENTS.md."),
+		"role":                stringProperty("User-authored short role label; not an authorization role."),
+		"purpose":             stringProperty("User-authored description of when this environment is useful."),
+		"permissions":         deploymentPermissionsSchema(),
+		"desired_revision":    stringProperty("Desired Deployment configuration revision."),
+		"applied_revision":    stringProperty("Revision currently applied by the AgentDock node."),
+		"enabled":             booleanProperty("Whether this Deployment may become a new Target."),
+		"apply_status":        enumProperty("Deployment apply state.", "draft", "pending", "applied", "failed", "disabled"),
+		"online":              booleanProperty("Whether the bound AgentDock node is currently online."),
+		"availability_status": stringProperty("Preparation status or explicit reason this Deployment cannot become a Target."),
+		"last_error":          stringProperty("Safe latest apply or preparation error; empty when none."),
+	}, "id", "project_id", "node_id", "working_folder", "role", "purpose", "permissions", "desired_revision", "applied_revision", "enabled", "apply_status", "online", "availability_status", "last_error")
+}
+
+func projectPromptSchema() map[string]any {
+	source := strictObject(map[string]any{
+		"path":    stringProperty("AGENTS.md path relative to the Deployment working folder."),
+		"scope":   stringProperty("Project-relative directory scope where this source applies."),
+		"sha256":  stringProperty("SHA-256 digest of the complete source body."),
+		"bytes":   integerProperty("Complete UTF-8 source byte length."),
+		"content": stringProperty("Complete source body. Successful complete=true results never silently truncate it."),
+	}, "path", "scope", "sha256", "bytes", "content")
+	return strictObject(map[string]any{
+		"prompt_revision": stringProperty("Revision derived from the ordered complete applicable AGENTS.md source set."),
+		"complete":        booleanProperty("Whether every applicable source was loaded and returned completely."),
+		"bytes":           integerProperty("Total UTF-8 bytes of complete applicable source bodies."),
+		"sources":         map[string]any{"type": "array", "items": source},
+	}, "prompt_revision", "complete", "bytes", "sources")
+}
+
+func sourceProvenanceSchema() map[string]any {
+	return strictObject(map[string]any{
+		"kind":            enumProperty("Observed source-control kind. unknown means the Target was not inspected yet; none means the working folder is not inside a Git worktree.", "unknown", "none", "git"),
+		"repository_root": stringProperty("Node-local Git repository root path; empty for non-Git Targets."),
+		"head":            stringProperty("Observed Git HEAD commit; empty only for non-Git or unborn repositories."),
+		"branch":          stringProperty("Observed branch name; empty for detached HEAD or non-Git Targets."),
+		"detached":        booleanProperty("Whether Git HEAD is detached."),
+		"unborn":          booleanProperty("Whether the Git repository has no HEAD commit yet."),
+		"dirty":           booleanProperty("Whether tracked or untracked working-tree changes were observed."),
+	}, "kind", "repository_root", "head", "branch", "detached", "unborn", "dirty")
+}
+
+func workTargetSchema() map[string]any {
+	return strictObject(map[string]any{
+		"target_id":           stringProperty("Stable Target id within this WorkSession."),
+		"work_session_id":     stringProperty("Owning WorkSession id."),
+		"project_id":          stringProperty("Bound Project id."),
+		"deployment_id":       stringProperty("Bound Deployment id."),
+		"node_id":             stringProperty("Node resolved from the bound Deployment."),
+		"cwd_rel":             stringProperty("Current Project-relative Target working directory."),
+		"deployment_revision": stringProperty("Deployment revision this Target is authorized against."),
+		"context_revision":    stringProperty("Revision of Project/Deployment/cwd/Prompt context returned for this Target."),
+		"status":              enumProperty("Target state.", "preparing", "ready", "running", "idle", "unavailable", "context_error", "revoked"),
+		"permissions":         deploymentPermissionsSchema(),
+		"prompt":              projectPromptSchema(),
+		"source_provenance":   sourceProvenanceSchema(),
+	}, "target_id", "work_session_id", "project_id", "deployment_id", "node_id", "cwd_rel", "deployment_revision", "context_revision", "status", "permissions", "prompt", "source_provenance")
 }
 
 func LocalAgentDockContextOutputSchema() map[string]any {
@@ -123,21 +269,31 @@ func FleetAgentDockContextOutputSchema() map[string]any {
 			"source": stringProperty("Context section identifier."), "message": stringProperty("Safe warning message."),
 		}, "required": []string{"source", "message"}, "additionalProperties": false,
 	}
+<<<<<<< HEAD
 	rules := map[string]any{"type": "array", "items": map[string]any{"type": "string"}}
 	local := strictObject(localContextProperties(false), "skills", "dynamic_mcp", "rules")
+=======
+	local := strictObject(localContextProperties(false), "skills", "common_skills", "dynamic_mcp")
+>>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 	shared := strictObject(map[string]any{
 		"workflow_templates": map[string]any{"type": "array", "items": item},
 		"recall": strictObject(map[string]any{
 			"enabled": booleanProperty("Whether NexusDock Recall is available."),
 			"items":   map[string]any{"type": "array", "items": item},
 		}, "enabled", "items"),
+<<<<<<< HEAD
 		"rules":    rules,
 		"warnings": map[string]any{"type": "array", "items": warning},
 	}, "workflow_templates", "recall", "rules")
+=======
+		"warnings": map[string]any{"type": "array", "items": warning},
+	}, "workflow_templates", "recall")
+>>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 	return strictObject(map[string]any{
 		"nodes": map[string]any{
 			"type": "array", "description": "Enabled AgentDock nodes and their node-local context.",
 			"items": strictObject(map[string]any{
+<<<<<<< HEAD
 				"node_id":      map[string]any{"type": "string"},
 				"name":         map[string]any{"type": "string"},
 				"online":       map[string]any{"type": "boolean"},
@@ -148,6 +304,19 @@ func FleetAgentDockContextOutputSchema() map[string]any {
 				"context":      local,
 				"error":        map[string]any{"type": "string"},
 			}, "node_id", "name", "online", "capabilities"),
+=======
+				"node_id":           map[string]any{"type": "string"},
+				"name":              map[string]any{"type": "string"},
+				"online":            map[string]any{"type": "boolean"},
+				"version":           map[string]any{"type": "string"},
+				"os":                map[string]any{"type": "string"},
+				"arch":              map[string]any{"type": "string"},
+				"capabilities":      map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+				"capability_status": stringProperty("Node capability context status such as ready, offline, unsupported, timeout, malformed, or unavailable."),
+				"context":           local,
+				"error":             map[string]any{"type": "string"},
+			}, "node_id", "name", "online", "capabilities", "capability_status"),
+>>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 		},
 		"shared": shared,
 	}, "nodes", "shared")

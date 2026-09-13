@@ -13,7 +13,6 @@ func TestUIResourceContractsAreExplicit(t *testing.T) {
 		RecallUIResourceURI:       RecallUIContract,
 		WorkflowUIResourceURI:     WorkflowUIContract,
 		DynamicMCPUIResourceURI:   DynamicMCPUIContract,
-		ArtifactUIResourceURI:     ArtifactUIContract,
 		ACPStatusUIResourceURI:    ACPStatusUIContract,
 	}
 	for uri, want := range cases {

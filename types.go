@@ -4,15 +4,16 @@ import "encoding/json"
 
 // Message is the AgentDock ↔ NexusDock WebSocket envelope.
 type Message struct {
-	Type            string          `json:"type"`
-	RequestID       string          `json:"request_id,omitempty"`
-	Operation       string          `json:"operation,omitempty"`
-	Arguments       json.RawMessage `json:"arguments,omitempty"`
-	Result          json.RawMessage `json:"result,omitempty"`
-	Error           *RemoteError    `json:"error,omitempty"`
-	Hello           *Hello          `json:"hello,omitempty"`
-	ProtocolVersion string          `json:"protocol_version,omitempty"`
-	HeartbeatMS     int             `json:"heartbeat_ms,omitempty"`
+	Type             string            `json:"type"`
+	RequestID        string            `json:"request_id,omitempty"`
+	Operation        string            `json:"operation,omitempty"`
+	ExecutionContext *ExecutionContext `json:"execution_context,omitempty"`
+	Arguments        json.RawMessage   `json:"arguments,omitempty"`
+	Result           json.RawMessage   `json:"result,omitempty"`
+	Error            *RemoteError      `json:"error,omitempty"`
+	Hello            *Hello            `json:"hello,omitempty"`
+	ProtocolVersion  string            `json:"protocol_version,omitempty"`
+	HeartbeatMS      int               `json:"heartbeat_ms,omitempty"`
 }
 
 // Hello is the complete node capability snapshot sent at connection time.

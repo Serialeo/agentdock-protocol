@@ -5,7 +5,29 @@ func InputSchema(name string) (map[string]any, bool) {
 	props := map[string]any{}
 	var required []string
 	switch name {
+<<<<<<< HEAD
 	case ToolAgentDockContext:
+=======
+	case ToolAgentDockContext, ToolProjectList:
+	case ToolProjectOpen:
+		props["project_id"] = stringProperty("Stable NexusDock Project id to enter.")
+		props["client_request_id"] = stringProperty("Client-generated idempotency key for this WorkSession creation request.")
+		props["targets"] = map[string]any{
+			"type":        "array",
+			"minItems":    1,
+			"description": "Optional explicit Deployment targets for this WorkSession. Omit to discover available Project Deployments; an explicit empty array is invalid.",
+			"items": strictObject(map[string]any{
+				"deployment_id": stringProperty("Stable Deployment id selected for this WorkSession."),
+				"cwd_rel":       stringProperty("Optional starting subdirectory for this Target. Defaults to the configured Project Folder root, or the Node AgentDock default cwd when no Project Folder is configured."),
+			}, "deployment_id"),
+		}
+		required = []string{"project_id", "client_request_id"}
+	case ToolProjectContext:
+		props["work_session_id"] = stringProperty("Bound WorkSession id returned by project_open.")
+		props["target_id"] = stringProperty("Target id owned by the bound WorkSession.")
+		props["cwd_rel"] = stringProperty("Optional Project-relative subdirectory to bind before refreshing the complete applicable Project Prompt.")
+		required = []string{"work_session_id", "target_id"}
+>>>>>>> 0332bc6 (feat(project): add full access and optional project folder semantics)
 	case ToolRecallSearch:
 		props["query"] = stringProperty("Text query to search in NexusDock Recall files and paths.")
 		props["kind"] = enumProperty("Search kind. Defaults to all.", "all", "markdown", "card")
