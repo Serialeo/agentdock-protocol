@@ -80,11 +80,11 @@ func TestOnlyProjectToolCallsRequireExecutionContextAtBridgeContractLayer(t *tes
 
 func TestDeploymentPermissionsValidateFileCapability(t *testing.T) {
 	for _, files := range []FileCapability{FileCapabilityNone, FileCapabilityReadOnly, FileCapabilityReadWrite} {
-		if err := (DeploymentPermissions{Files: files}).Validate(); err != nil {
+		if err := (DeploymentPermissions{Computer: ComputerPermissionNone, Files: files}).Validate(); err != nil {
 			t.Fatalf("valid files capability %q rejected: %v", files, err)
 		}
 	}
-	if err := (DeploymentPermissions{Files: FileCapability("sandbox")}).Validate(); err == nil {
+	if err := (DeploymentPermissions{Computer: ComputerPermissionNone, Files: FileCapability("sandbox")}).Validate(); err == nil {
 		t.Fatal("unknown files capability unexpectedly accepted")
 	}
 }

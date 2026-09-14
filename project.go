@@ -74,20 +74,26 @@ type DeploymentPermissions struct {
 	// FullAccess grants all Project execution capabilities exposed by the target Node.
 	// It is intentionally independent from Deployment.WorkingFolder: the folder is a
 	// default cwd / Project Prompt anchor, not an OS access boundary.
-	FullAccess bool           `json:"full_access"`
-	Files      FileCapability `json:"files"`
-	Shell      bool           `json:"shell"`
-	Browser    bool           `json:"browser"`
-	DynamicMCP bool           `json:"dynamic_mcp"`
-	ACP        bool           `json:"acp"`
+	FullAccess bool               `json:"full_access"`
+	Computer   ComputerPermission `json:"computer"`
+	Files      FileCapability     `json:"files"`
+	Shell      bool               `json:"shell"`
+	Browser    bool               `json:"browser"`
+	DynamicMCP bool               `json:"dynamic_mcp"`
+	ACP        bool               `json:"acp"`
 }
 
 func (p DeploymentPermissions) Validate() error {
 	switch p.Files {
 	case FileCapabilityNone, FileCapabilityReadOnly, FileCapabilityReadWrite:
-		return nil
 	default:
 		return fmt.Errorf("invalid files capability %q", p.Files)
+	}
+	switch p.Computer {
+	case ComputerPermissionNone, ComputerPermissionObserve, ComputerPermissionControl:
+		return nil
+	default:
+		return fmt.Errorf("invalid computer capability %q", p.Computer)
 	}
 }
 
