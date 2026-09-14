@@ -32,7 +32,7 @@ h1{font-size:16px;margin:0 0 8px}p{margin:8px 0}#status{font-weight:600}#detail,
   const t=key=>words[locale][key]||key;
   const requests=new Map(),preparedAttempts=new Set();
   let requestID=0,timer=null,epoch=0,identity=null,bound=false,ready=false,initialized=false,closed=false;
-  let inFlight=false,desiredAction=null,optedIn=false,blocked=false,failures=0,lastHeartbeat=0;
+  let inFlight=false,desiredAction=null,optedIn=false,blocked=false,blockedWakeID="",failures=0,lastHeartbeat=0;
   let snapshot={},notice="connecting",detail="",pendingFinish=null;
   const bindingID=typeof crypto.randomUUID==="function"?crypto.randomUUID():Array.from(crypto.getRandomValues(new Uint8Array(24)),v=>v.toString(16).padStart(2,"0")).join("");
   const visible=()=>document.visibilityState==="visible";
@@ -65,25 +65,41 @@ h1{font-size:16px;margin:0 0 8px}p{margin:8px 0}#status{font-weight:600}#detail,
     notify("ui/notifications/size-changed",{height:Math.ceil(document.documentElement.getBoundingClientRect().height)});
   }
   function setNotice(next,explanation=""){notice=next;detail=explanation;render()}
+  function wakeID(data){
+    if(typeof data.wake_id==="string"&&data.wake_id)return data.wake_id;
+    return object(data.wake)&&typeof data.wake.wake_id==="string"?data.wake.wake_id:"";
+  }
+  function blockWake(data,fallback=""){blocked=true;const id=wakeID(data)||fallback;if(id)blockedWakeID=id}
+  function clearBlock(){blocked=false;blockedWakeID=""}
   function acceptState(data,version){
     if(!current(version))return false;
     if(data.controller_generation!==identity.controller_generation||data.work_session_id!==identity.work_session_id||data.endpoint_id!==identity.endpoint_id){
-      blocked=true;optedIn=false;setNotice("unbound","unboundDetail");return false;
+      blocked=true;blockedWakeID="";optedIn=false;setNotice("unbound","unboundDetail");return false;
     }
     snapshot=data;
     const state=object(data.state)?data.state:{};
     const status=object(data.wake)?data.wake.state:"";
+    const currentWakeID=wakeID(data);
     if(state.enabled===false)optedIn=false;
-    if(["delivery_unknown","prepared"].includes(status)){blocked=true;setNotice("unknown","unknownDetail")}
-    else if(status==="delivery_rejected"){blocked=true;setNotice("rejected","rejectedDetail")}
-    else if(status==="consumed"||status==="dispatch_accepted"){blocked=false;setNotice("accepted","acceptedDetail")}
-    else if(["needs_inspection","needs_attention","circuit_open","budget_exhausted","failed"].includes(state.phase)){blocked=true;setNotice("inspection","inspectionDetail")}
-    else if(!blocked){
+    if(["delivery_unknown","prepared"].includes(status)){blockWake(data);setNotice("unknown","unknownDetail")}
+    else if(status==="delivery_rejected"){blockWake(data);setNotice("rejected","rejectedDetail")}
+    else if(status==="consumed"||status==="dispatch_accepted"){clearBlock();setNotice("accepted","acceptedDetail")}
+    else if(status==="settled"){clearBlock()}
+    else if(["needs_inspection","needs_attention","circuit_open","budget_exhausted","failed"].includes(state.phase)){blockWake(data);setNotice("inspection","inspectionDetail")}
+    else {
+      // A blocked Wake is sticky only while the authoritative snapshot still
+      // identifies that unresolved Wake. The App may legitimately miss the
+      // consume+settle transitions between polls; after settlement the server
+      // omits that Wake (or selects a different one), which proves the old
+      // no-resend fence is resolved without replaying its Host message.
+      if(blocked&&blockedWakeID&&currentWakeID!==blockedWakeID)clearBlock();
+      if(!blocked){
       if(!visible())setNotice("hidden","hiddenDetail");
       else if(!optedIn)setNotice(state.enabled?"ready":"paused",state.enabled?"consent":"pausedDetail");
       else if(!state.enabled)setNotice("paused","pausedDetail");
       else if(status==="dispatch_accepted"||status==="consumed")setNotice("accepted","acceptedDetail");
       else setNotice("active","hiddenDetail");
+      }
     }
     return true;
   }
@@ -108,13 +124,13 @@ h1{font-size:16px;margin:0 0 8px}p{margin:8px 0}#status{font-weight:600}#detail,
     setNotice("preparing");
     try{prepared=await tool("work_wake_prepare",{...base(),...attempt})}
     catch(_){
-      if(current(version)){blocked=true;pendingFinish={...attempt,delivery_status:"delivery_unknown"};setNotice("unknown","unknownDetail");await finish(version)}
+      if(current(version)){blocked=true;blockedWakeID=attempt.wake_id;pendingFinish={...attempt,delivery_status:"delivery_unknown"};setNotice("unknown","unknownDetail");await finish(version)}
       return;
     }
     if(!current(version))return;
     if(prepared.controller_generation!==identity.controller_generation||prepared.work_session_id!==identity.work_session_id||prepared.endpoint_id!==identity.endpoint_id){blocked=true;setNotice("unbound","unboundDetail");return}
     if(!visible()||!optedIn||desiredAction==="pause"||typeof prepared.automatic_message!=="string"||!prepared.automatic_message){
-      blocked=true;pendingFinish={...attempt,delivery_status:"delivery_unknown"};setNotice("unknown","unknownDetail");await finish(version);return;
+      blocked=true;blockedWakeID=attempt.wake_id;pendingFinish={...attempt,delivery_status:"delivery_unknown"};setNotice("unknown","unknownDetail");await finish(version);return;
     }
     let delivery="delivery_unknown";
     try{
@@ -124,10 +140,11 @@ h1{font-size:16px;margin:0 0 8px}p{margin:8px 0}#status{font-weight:600}#detail,
     }catch(error){delivery=error.rejected?"delivery_rejected":"delivery_unknown"}
     if(!current(version))return;
     pendingFinish={...attempt,delivery_status:delivery};
-    blocked=delivery!=="dispatch_accepted";
+    blocked=delivery!=="dispatch_accepted";blockedWakeID=blocked?attempt.wake_id:"";
     setNotice(delivery==="dispatch_accepted"?"accepted":delivery==="delivery_rejected"?"rejected":"unknown",delivery==="dispatch_accepted"?"acceptedDetail":delivery==="delivery_rejected"?"rejectedDetail":"unknownDetail");
     await finish(version);
   }
+  let idlePolls=0;
   async function reconcile(){
     if(inFlight||closed||!ready||!identity)return;
     inFlight=true;const version=epoch;let acting="";
@@ -158,10 +175,11 @@ h1{font-size:16px;margin:0 0 8px}p{margin:8px 0}#status{font-weight:600}#detail,
       const state=await tool("work_continuation_state",base());
       if(!acceptState(state,version))return;
       failures=0;
+      idlePolls=object(snapshot.wake)?0:Math.min(idlePolls+1,4);
       if(!visible())return;
       await finish(version);
       if(!current(version)||!optedIn||blocked||desiredAction||!snapshot.state||snapshot.state.enabled!==true)return;
-      if(object(snapshot.wake)&&!["pending","claimed"].includes(snapshot.wake.state))return;
+      if(!object(snapshot.wake)||!["pending","claimed"].includes(snapshot.wake.state))return;
       const claim=await tool("work_wake_acquire",base());
       if(!current(version))return;
       if(!acceptState(claim,version))return;
@@ -173,7 +191,7 @@ h1{font-size:16px;margin:0 0 8px}p{margin:8px 0}#status{font-weight:600}#detail,
         else if(!blocked){optedIn=false;setNotice("error","errorDetail")};
       }
     }finally{
-      inFlight=false;render();schedule(Math.min(30000,2000*Math.pow(2,failures)));
+      inFlight=false;render();schedule(Math.min(30000,2000*Math.pow(2,Math.max(failures,idlePolls))));
     }
   }
   function presentation(data){
@@ -184,7 +202,7 @@ h1{font-size:16px;margin:0 0 8px}p{margin:8px 0}#status{font-weight:600}#detail,
     }
     // 完整的 presenter 身份必须一起到达；不拼接不同通知的凭据。
     identity={work_session_id:data.work_session_id,endpoint_id:data.endpoint_id,controller_generation:data.controller_generation,binding_secret:data.binding_secret};
-    epoch++;bound=false;optedIn=false;blocked=false;desiredAction=null;pendingFinish=null;lastHeartbeat=0;snapshot={};
+    epoch++;idlePolls=0;bound=false;optedIn=false;blocked=false;blockedWakeID="";desiredAction=null;pendingFinish=null;lastHeartbeat=0;snapshot={};
     if(initialized&&!ready)setNotice("unsupported","unsupportedDetail");
     else setNotice(ready?"ready":"connecting",ready?"consent":"");schedule(0);
   }

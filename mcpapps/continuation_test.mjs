@@ -10,10 +10,10 @@ const identity={work_session_id:'ws_1',endpoint_id:'ep_1',controller_generation:
 const flush=async()=>{for(let i=0;i<30;i++)await Promise.resolve()};
 
 function host(options={}){
-  let now=100000,nextTimer=0,phase='awaiting',wakeStatus='pending',paused=false;
+  let now=100000,nextTimer=0,phase='awaiting',wakeStatus='pending',wakeID='wake_1',attemptID='attempt_1',paused=false;
   const timers=new Map(),windowEvents={},documentEvents={},calls=[],elements={};
   const scope={...identity};
-  const response=(extra={})=>({...scope,state:{enabled:!paused,phase,rounds_used:0,max_rounds:3},wake:{state:wakeStatus},...extra});
+  const response=(extra={})=>({...scope,state:{enabled:!paused,phase,rounds_used:0,max_rounds:3},wake:{wake_id:wakeID,state:wakeStatus},...extra});
   const handlers={};
   const elementsIDs=['title','status','scope','budget','detail','enable','pause'];
   for(const id of elementsIDs)elements[id]={textContent:'',disabled:false,addEventListener:(event,handler)=>{handlers[id+':'+event]=handler}};
@@ -31,9 +31,9 @@ function host(options={}){
       if(name==='work_continuation_pause')paused=true;
       let result=response();
       if(name==='work_wake_acquire'&&wakeStatus==='pending'){
-        wakeStatus='claimed';result=response({wake_id:'wake_1',attempt_id:'attempt_1'});
+        wakeStatus='claimed';result=response({wake_id:wakeID,attempt_id:attemptID});
       }else if(name==='work_wake_prepare'){
-        wakeStatus='prepared';result=response({wake_id:'wake_1',attempt_id:'attempt_1',automatic_message:'SERVER MESSAGE\n{"consume_token":"one-use"}'});
+        wakeStatus='prepared';result=response({wake_id:wakeID,attempt_id:attemptID,automatic_message:'SERVER MESSAGE\n{"consume_token":"one-use"}'});
       }else if(name==='work_wake_finish'){
         if(wakeStatus!=='consumed')wakeStatus=args.delivery_status;
         result=response();
@@ -43,7 +43,7 @@ function host(options={}){
   }};
   const fakeDate=class extends Date{static now(){return now}};
   const api={calls,elements,scope,response,reply,deliver,
-    setWake:value=>{wakeStatus=value},setEnabled:value=>{paused=!value},setPhase:value=>{phase=value},
+    setWake:(value,nextWakeID=wakeID,nextAttemptID=attemptID)=>{wakeStatus=value;wakeID=nextWakeID;attemptID=nextAttemptID},setEnabled:value=>{paused=!value},setPhase:value=>{phase=value},
     toolCalls:name=>calls.filter(call=>call.method==='tools/call'&&call.params.name===name),
     messages:()=>calls.filter(call=>call.method==='ui/message'),
     notification:(method,params)=>deliver({method,params}),
@@ -251,4 +251,44 @@ test('accepted finish clears a prepared observation after a lost finish response
   }});await enable(h);await h.advance(30000);
   assert.equal(h.messages().length,1);assert.match(h.elements.status.textContent,/Continuation requested/);
   assert.doesNotMatch(h.elements.detail.textContent,/will not resend/);
+});
+
+test('settled work clears an older delivery-unknown block even when consume was missed between polls',async()=>{
+  let omitSettledWake=false;
+  const h=await start({intercept:(request,api)=>{
+    if(request.method==='ui/message')return true;
+    if(omitSettledWake&&['work_continuation_state','work_continuation_heartbeat'].includes(request.params?.name)){
+      const data=api.response();delete data.wake;
+      delete data.wake_id;delete data.attempt;delete data.attempt_id;
+      api.reply(request,{structuredContent:data});return true;
+    }
+    return false;
+  }});
+  await enable(h);await h.advance(12000);
+  assert.equal(h.messages().length,1);assert.match(h.elements.status.textContent,/inspection/);
+  const prepares=h.toolCalls('work_wake_prepare').length;
+  omitSettledWake=true;h.setWake('settled');h.setPhase('ready');await h.advance(4000);
+  omitSettledWake=false;h.setWake('pending','wake_2','attempt_2');h.setPhase('awaiting');
+  const acquires=h.toolCalls('work_wake_acquire').length;await h.advance(6000);
+  assert.ok(h.toolCalls('work_wake_acquire').length>acquires);
+  assert.equal(h.toolCalls('work_wake_prepare').length,prepares+1);
+  assert.equal(h.messages().length,2); // the new Wake is dispatched; the old attempt is never replayed.
+});
+
+test('empty wake polling backs off without acquiring and resumes when pending work appears',async()=>{
+  let idle=true;
+  const h=await start({intercept:(request,api)=>{
+    if(idle&&request.method==='tools/call'&&request.params.name.startsWith('work_continuation_')){
+      api.reply(request,{structuredContent:api.response({wake:null})});return true;
+    }
+    return false;
+  }});
+  await enable(h);
+  const before=h.toolCalls('work_continuation_state').length;
+  await h.advance(30000);
+  assert.equal(h.toolCalls('work_wake_acquire').length,0);
+  assert.ok(h.toolCalls('work_continuation_state').length-before<=3);
+  idle=false;
+  await h.advance(30000);
+  assert.equal(h.messages().length,1);
 });
