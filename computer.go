@@ -140,6 +140,8 @@ type ComputerInputResult struct {
 }
 
 type ComputerActionResult struct {
+	ErrorCode         string               `json:"error_code,omitempty"`
+	ErrorMessage      string               `json:"error_message,omitempty"`
 	OperationID       string               `json:"operation_id"`
 	State             string               `json:"state"`
 	Effects           string               `json:"effects"`

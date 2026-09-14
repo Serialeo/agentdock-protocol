@@ -131,9 +131,11 @@ func computerObservationSchema() map[string]any {
 func computerActionResultSchema() map[string]any {
 	return strictObject(map[string]any{
 		"operation_id": computerID("Saved operation ID."), "state": enumProperty("Durable execution state.", "prepared", "executing", "finished", "cancelled", "interrupted", "outcome_unknown"),
-		"effects":     enumProperty("Known possible effects.", "none", "partial", "unknown", "applied"),
-		"input":       strictObject(map[string]any{"status": enumProperty("API submission is not business verification.", "not_submitted", "submitted", "accepted", "rejected", "partial", "unknown"), "requested_events": map[string]any{"type": "integer", "minimum": 0}, "accepted_events": map[string]any{"type": "integer", "minimum": 0}}, "status"),
-		"observation": computerObservationSchema(), "observation_status": enumProperty("Post-input capture outcome.", "not_requested", "captured", "unavailable"),
+		"error_code":    stringProperty("Native failure code, when input was refused or incomplete."),
+		"error_message": stringProperty("Native diagnostic, retained when rereading the operation."),
+		"effects":       enumProperty("Known possible effects.", "none", "partial", "unknown", "applied"),
+		"input":         strictObject(map[string]any{"status": enumProperty("API submission is not business verification.", "not_submitted", "submitted", "accepted", "rejected", "partial", "unknown"), "requested_events": map[string]any{"type": "integer", "minimum": 0}, "accepted_events": map[string]any{"type": "integer", "minimum": 0}}, "status"),
+		"observation":   computerObservationSchema(), "observation_status": enumProperty("Post-input capture outcome.", "not_requested", "captured", "unavailable"),
 		"verification": enumProperty("No business predicate is implemented in this contract version.", "not_checked"), "replayed_result": booleanProperty("Stored result was returned; input was not replayed."),
 	}, "operation_id", "state", "effects", "input", "observation_status", "verification", "replayed_result")
 }
