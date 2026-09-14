@@ -187,10 +187,9 @@ func deploymentPermissionsSchema() map[string]any {
 		"files":       enumProperty("Built-in file capability when full_access is false.", "none", "read_only", "read_write"),
 		"shell":       booleanProperty("Whether command execution is allowed when full_access is false. This is not an OS sandbox."),
 		"browser":     booleanProperty("Whether browser capabilities are allowed when full_access is false."),
-		"computer":    enumProperty("Native desktop access when full_access is false. OS permissions and local stop still apply.", "none", "observe", "control"),
 		"dynamic_mcp": booleanProperty("Whether configured dynamic MCP calls are allowed when full_access is false."),
 		"acp":         booleanProperty("Whether ACP agent execution is allowed when full_access is false."),
-	}, "full_access", "files", "shell", "browser", "computer", "dynamic_mcp", "acp")
+	}, "full_access", "files", "shell", "browser", "dynamic_mcp", "acp")
 }
 
 func deploymentViewSchema() map[string]any {
