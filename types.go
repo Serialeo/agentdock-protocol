@@ -18,6 +18,7 @@ type Message struct {
 
 // Hello is the complete node capability snapshot sent at connection time.
 type Hello struct {
+	Builtins           []BuiltinCapability    `json:"builtins"`
 	DeviceID           string                 `json:"device_id"`
 	Version            string                 `json:"version"`
 	ProtocolVersion    string                 `json:"protocol_version"`

@@ -22,3 +22,10 @@ Continuation is a Nexus-owned extension of the existing Project / WorkSession / 
 The three model entrances (`work_continuation`, `present_work_continuation`, `consume_work_wake`) have explicit model visibility; controller coordination tools are app-only. Only `present_work_continuation` binds `ui://agentdock/work-continuation` (`agentdock.work-continuation.v1`). The controller's binding proof belongs exclusively in tool result `_meta["agentdock/work-continuation"]`, outside model-visible content. Resume messages contain only the exact seven-field identity envelope and a single-use consume token; actual work and routing remain server-authorized. Explicit enable/recovery, bounded rounds, prepared-message fencing, and consumed-versus-settled state are separate contracts.
 
 `go test ./...` covers wire/schema compatibility; `node --test mcpapps/continuation_test.mjs` exercises the controller against a simulated public MCP Apps Host transport. CI runs both suites. Live ChatGPT scheduling and lifecycle behavior require separate Host acceptance testing.
+
+Built-in capability snapshots use `Hello.builtins` and the complete `node.updated`
+message. `provided`, `enabled`, and `ready` are independent; a transitioning group
+is unavailable. The node owns and persists the user choice. A snapshot replaces
+the tool catalog; it never grants Deployment permissions or resumes old work.
+GUI updates use the existing `runtime.request` operation for
+`/internal/runtime/builtins`, with `{ "id": "browser", "enabled": false }`.
