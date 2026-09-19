@@ -10,7 +10,7 @@ func InputSchema(name string) (map[string]any, bool) {
 	switch name {
 	case ToolAgentDockContext, ToolProjectList:
 	case ToolProjectOpen:
-		props["project_id"] = stringProperty("Stable NexusDock Project id to enter.")
+		props["project_id"] = stringProperty("Stable id of the Project explicitly specified by the user. Without a user-specified Project, enter a node temporary session with node_open.")
 		props["client_request_id"] = stringProperty("Client-generated idempotency key for this WorkSession creation request.")
 		props["targets"] = map[string]any{
 			"type":        "array",
@@ -23,12 +23,12 @@ func InputSchema(name string) (map[string]any, bool) {
 		}
 		required = []string{"project_id", "client_request_id"}
 	case ToolProjectContext:
-		props["work_session_id"] = stringProperty("Bound WorkSession id returned by project_open.")
+		props["work_session_id"] = stringProperty("Bound WorkSession id returned by node_open or project_open.")
 		props["target_id"] = stringProperty("Target id owned by the bound WorkSession.")
-		props["cwd_rel"] = stringProperty("Optional Project-relative subdirectory to bind before refreshing the complete applicable Project Prompt.")
+		props["cwd_rel"] = stringProperty("Optional subdirectory relative to the existing Target's configured working folder or Node default cwd, to bind before refreshing context.")
 		required = []string{"work_session_id", "target_id"}
 	case ToolNodeOpen:
-		props["node_id"] = stringProperty("Stable AgentDock Node id to enter.")
+		props["node_id"] = stringProperty("Stable AgentDock Node id from agentdock_context. This is the default work entry when the user has not specified a Project.")
 		props["client_request_id"] = stringProperty("Client-generated idempotency key for this WorkSession creation request.")
 		props["cwd_rel"] = stringProperty("Optional starting subdirectory relative to the Node AgentDock default cwd.")
 		required = []string{"node_id", "client_request_id"}
