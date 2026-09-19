@@ -27,6 +27,11 @@ func InputSchema(name string) (map[string]any, bool) {
 		props["target_id"] = stringProperty("Target id owned by the bound WorkSession.")
 		props["cwd_rel"] = stringProperty("Optional Project-relative subdirectory to bind before refreshing the complete applicable Project Prompt.")
 		required = []string{"work_session_id", "target_id"}
+	case ToolNodeOpen:
+		props["node_id"] = stringProperty("Stable AgentDock Node id to enter.")
+		props["client_request_id"] = stringProperty("Client-generated idempotency key for this WorkSession creation request.")
+		props["cwd_rel"] = stringProperty("Optional starting subdirectory relative to the Node AgentDock default cwd.")
+		required = []string{"node_id", "client_request_id"}
 	case ToolRecallSearch:
 		props["query"] = stringProperty("Text query to search in NexusDock Recall files and paths.")
 		props["kind"] = enumProperty("Search kind. Defaults to all.", "all", "markdown", "card")

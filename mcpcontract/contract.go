@@ -5,6 +5,7 @@ const (
 	ToolProjectList            = "project_list"
 	ToolProjectOpen            = "project_open"
 	ToolProjectContext         = "project_context"
+	ToolNodeOpen               = "node_open"
 	ToolRecallSearch           = "recall_search"
 	ToolRecallRead             = "recall_read"
 	ToolRecallWrite            = "recall_write"
@@ -27,6 +28,7 @@ var nexusOnlyToolNames = []string{
 	ToolProjectList,
 	ToolProjectOpen,
 	ToolProjectContext,
+	ToolNodeOpen,
 }
 
 // ToolNames returns the canonical model-facing tools shared by AgentDock and NexusDock.
@@ -75,7 +77,7 @@ func AnnotationContract(name string) (Annotations, bool) {
 	case ToolAgentDockContext, ToolProjectList, ToolRecallSearch, ToolRecallRead:
 		readOnly = true
 		destructive = false
-	case ToolProjectOpen, ToolProjectContext:
+	case ToolProjectOpen, ToolProjectContext, ToolNodeOpen:
 		destructive = false
 		idempotent = boolPtr(true)
 	case ToolRecallWrite, ToolRecallMaintain, ToolPrivateNoteManage, ToolWorkflowTemplateManage:

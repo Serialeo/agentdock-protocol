@@ -34,12 +34,26 @@ func OutputSchema(name string) (map[string]any, bool) {
 		}
 		required = []string{"work_session_id", "status", "project", "deployments", "targets"}
 		strict = true
+	case ToolNodeOpen:
+		props["work_session_id"] = stringProperty("Bound WorkSession id created or resolved idempotently for this request.")
+		props["status"] = enumProperty("WorkSession state.", "preparing", "ready", "running", "completed", "partial", "failed", "cancelled")
+		props["node"] = nodeOpenSchema()
+		props["targets"] = map[string]any{
+			"type":        "array",
+			"minItems":    1,
+			"maxItems":    1,
+			"description": "The single WorkSession Target prepared for this Node.",
+			"items":       workTargetSchema(),
+		}
+		required = []string{"work_session_id", "status", "node", "targets"}
+		strict = true
 	case ToolProjectContext:
 		props["work_session_id"] = stringProperty("Bound WorkSession id.")
 		props["project"] = projectSchema()
+		props["node"] = nodeOpenSchema()
 		props["deployment"] = deploymentViewSchema()
 		props["target"] = workTargetSchema()
-		required = []string{"work_session_id", "project", "deployment", "target"}
+		required = []string{"work_session_id", "deployment", "target"}
 		strict = true
 	case ToolRecallSearch:
 		props["results"] = map[string]any{
@@ -122,7 +136,14 @@ func OutputSchema(name string) (map[string]any, bool) {
 		return nil, false
 	}
 	if strict {
-		return strictObject(props, required...), true
+		schema := strictObject(props, required...)
+		if name == ToolProjectContext {
+			schema["oneOf"] = []any{
+				map[string]any{"required": []string{"project"}, "not": map[string]any{"required": []string{"node"}}},
+				map[string]any{"required": []string{"node"}, "not": map[string]any{"required": []string{"project"}}},
+			}
+		}
+		return schema, true
 	}
 	return map[string]any{"type": "object", "properties": props, "required": []string{}, "additionalProperties": true}, true
 }
@@ -142,6 +163,14 @@ func projectSchema() map[string]any {
 		"name":                 stringProperty("Project display name."),
 		"orchestration_policy": stringProperty("User-authored multi-node collaboration guidance. It never expands hard permissions."),
 	}, "id", "name", "orchestration_policy")
+}
+
+func nodeOpenSchema() map[string]any {
+	return strictObject(map[string]any{
+		"node_id": stringProperty("Stable AgentDock Node id."),
+		"name":    stringProperty("AgentDock Node display name."),
+		"online":  booleanProperty("Whether the AgentDock Node is currently online."),
+	}, "node_id", "name", "online")
 }
 
 func deploymentPermissionsSchema() map[string]any {

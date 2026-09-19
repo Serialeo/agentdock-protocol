@@ -10,13 +10,14 @@ func TestCanonicalToolContractsAreCompleteAndFresh(t *testing.T) {
 	if got := len(ToolNames()); got != 7 {
 		t.Fatalf("shared tool count = %d, want 7", got)
 	}
-	if got := len(NexusToolNames()); got != 20 {
-		t.Fatalf("Nexus tool count = %d, want 20", got)
+	if got := len(NexusToolNames()); got != 21 {
+		t.Fatalf("Nexus tool count = %d, want 21", got)
 	}
 	projectTools := map[string]bool{
 		ToolProjectList:    true,
 		ToolProjectOpen:    true,
 		ToolProjectContext: true,
+		ToolNodeOpen:       true,
 	}
 	for name := range projectTools {
 		if !IsCanonicalTool(name) {
@@ -55,6 +56,38 @@ func TestCanonicalToolContractsAreCompleteAndFresh(t *testing.T) {
 	first["additionalProperties"] = true
 	if reflect.DeepEqual(first, second) {
 		t.Fatal("schema factories share mutable state")
+	}
+}
+
+func TestNodeOpenContractUsesSingleNodeTarget(t *testing.T) {
+	input, ok := InputSchema(ToolNodeOpen)
+	if !ok {
+		t.Fatal("missing node_open input schema")
+	}
+	props := input["properties"].(map[string]any)
+	for _, field := range []string{"node_id", "client_request_id"} {
+		if _, exists := props[field]; !exists {
+			t.Fatalf("node_open input missing %q", field)
+		}
+	}
+	if _, exists := props["cwd_rel"]; !exists {
+		t.Fatal("node_open input missing optional cwd_rel")
+	}
+
+	output, ok := OutputSchema(ToolNodeOpen)
+	if !ok {
+		t.Fatal("missing node_open output schema")
+	}
+	outputProps := output["properties"].(map[string]any)
+	node := outputProps["node"].(map[string]any)
+	for _, field := range []string{"node_id", "name", "online"} {
+		if _, exists := node["properties"].(map[string]any)[field]; !exists {
+			t.Fatalf("node_open node missing %q", field)
+		}
+	}
+	targets := outputProps["targets"].(map[string]any)
+	if targets["minItems"] != 1 || targets["maxItems"] != 1 {
+		t.Fatalf("node_open targets must contain exactly one item: %#v", targets)
 	}
 }
 
@@ -152,6 +185,22 @@ func TestProjectOutputCarriesCompletePromptSources(t *testing.T) {
 	for _, field := range []string{"project", "deployment", "target"} {
 		if _, exists := contextProps[field]; !exists {
 			t.Fatalf("project_context output missing %q", field)
+		}
+	}
+	if _, exists := contextProps["node"]; !exists {
+		t.Fatal("project_context output missing node alternative")
+	}
+	variants, ok := schema["oneOf"].([]any)
+	if !ok || len(variants) != 2 {
+		t.Fatalf("project_context must declare project/node alternatives: %#v", schema["oneOf"])
+	}
+	for _, variant := range variants {
+		branch := variant.(map[string]any)
+		if _, exists := branch["required"]; !exists {
+			t.Fatalf("project_context alternative missing required: %#v", branch)
+		}
+		if _, exists := branch["not"]; !exists {
+			t.Fatalf("project_context alternatives must be mutually exclusive: %#v", branch)
 		}
 	}
 	if _, exists := contextProps["delivery"]; exists {
