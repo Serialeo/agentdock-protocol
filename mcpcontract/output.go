@@ -16,14 +16,11 @@ func OutputSchema(name string) (map[string]any, bool) {
 			"description": "Projects the authenticated client may enter.",
 			"items":       projectSummarySchema(),
 		}
-		props["count"] = integerProperty("Returned Project count.")
-		required = []string{"projects", "count"}
+		required = []string{"projects"}
 		strict = true
 	case ToolProjectOpen:
 		props["work_session_id"] = stringProperty("Bound WorkSession id created or resolved idempotently for this request.")
 		props["status"] = enumProperty("WorkSession state.", "preparing", "ready", "running", "completed", "partial", "failed", "cancelled")
-		props["context_revision"] = stringProperty("Aggregate WorkSession context revision covering Project configuration and prepared Target context revisions.")
-		props["delivery"] = projectContextDeliverySchema()
 		props["project"] = projectSchema()
 		props["deployments"] = map[string]any{
 			"type":        "array",
@@ -35,21 +32,16 @@ func OutputSchema(name string) (map[string]any, bool) {
 			"description": "WorkSession Targets prepared from authorized Deployments. Discovery never implies that all Targets were executed.",
 			"items":       workTargetSchema(),
 		}
-		required = []string{"work_session_id", "status", "context_revision", "delivery", "project", "deployments", "targets"}
+		required = []string{"work_session_id", "status", "project", "deployments", "targets"}
 		strict = true
 	case ToolProjectContext:
 		props["work_session_id"] = stringProperty("Bound WorkSession id.")
 		props["project"] = projectSchema()
 		props["deployment"] = deploymentViewSchema()
 		props["target"] = workTargetSchema()
-		props["delivery"] = projectContextDeliverySchema()
-		required = []string{"work_session_id", "project", "deployment", "target", "delivery"}
+		required = []string{"work_session_id", "project", "deployment", "target"}
 		strict = true
 	case ToolRecallSearch:
-		props["recall_endpoint"] = stringProperty("NexusDock Recall endpoint.")
-		props["recall_kind"] = stringProperty("Search kind used.")
-		props["query"] = stringProperty("Search query.")
-		props["recall_store"] = stringProperty("Recall store name.")
 		props["results"] = map[string]any{
 			"type": "array", "description": "Recall search results with source identity fields.",
 			"items": map[string]any{
@@ -67,12 +59,9 @@ func OutputSchema(name string) (map[string]any, bool) {
 				"required": []string{"id", "title", "url"}, "additionalProperties": true,
 			},
 		}
-		props["count"] = integerProperty("Search result count.")
 	case ToolRecallRead:
-		props["recall_endpoint"] = stringProperty("NexusDock Recall endpoint.")
 		props["recall"] = objectProperty("NexusDock Recall document. Raw Markdown is returned only when include_raw=true.")
 	case ToolRecallWrite:
-		props["recall_endpoint"] = stringProperty("NexusDock Recall endpoint.")
 		props["recall_target"] = stringProperty("Recall target used.")
 		props["recall_action"] = stringProperty("Recall action used.")
 		props["recall"] = objectProperty("NexusDock Recall document returned when a write occurs.")
@@ -83,26 +72,15 @@ func OutputSchema(name string) (map[string]any, bool) {
 		props["path"] = stringProperty("NexusDock Recall-relative path.")
 		props["changed"] = booleanProperty("Whether the proposed edit changes content.")
 		props["dry_run"] = booleanProperty("Whether the operation only previewed changes.")
-		props["confirmed"] = booleanProperty("Whether write confirmation was supplied.")
 		props["written"] = booleanProperty("Whether the entry was written.")
 		props["diff"] = stringProperty("Unified diff preview.")
 		props["updates"] = arrayObjects("Fact update results.")
 	case ToolRecallMaintain:
-		props["recall_endpoint"] = stringProperty("NexusDock Recall endpoint.")
-		props["recall_action"] = stringProperty("Maintenance action performed.")
 		props["entries"] = arrayObjects("NexusDock Recall entries for action=list.")
-		props["count"] = integerProperty("Entry count where applicable.")
 		props["terms"] = arrayStrings("Terms used for action=lint.")
-		props["files_scanned"] = integerProperty("Files scanned for action=lint.")
-		props["finding_count"] = integerProperty("Finding count for action=lint.")
 		props["findings"] = arrayObjects("Lint findings.")
 	case ToolPrivateNoteManage:
-		props["root"] = stringProperty("NexusDock private notes root path.")
-		props["private_note_store"] = stringProperty("Private note store name, fixed to NexusDock Private Notes.")
-		props["action"] = stringProperty("Action performed.")
-		props["query"] = stringProperty("Metadata-only query for action=search.")
 		props["results"] = arrayObjects("Metadata-only private-note search results; never plaintext snippets.")
-		props["metadata_only"] = booleanProperty("Whether search was restricted to safe metadata.")
 		props["path"] = stringProperty("Plain note path for read/write/delete results.")
 		props["encrypted_path"] = stringProperty("Age encrypted backup path.")
 		props["content"] = stringProperty("Plaintext content returned only by explicit action=read.")
@@ -113,7 +91,6 @@ func OutputSchema(name string) (map[string]any, bool) {
 		props["deleted_plaintext"] = booleanProperty("Whether plaintext was deleted.")
 		props["deleted_encrypted"] = booleanProperty("Whether encrypted backup was deleted.")
 		props["notes"] = arrayObjects("Metadata-only private note summaries for status/list.")
-		props["count"] = integerProperty("Result or note count.")
 		props["notes_count"] = integerProperty("Private note count for status checks.")
 		props["encrypted_count"] = integerProperty("Encrypted backup count for maintenance actions.")
 		props["recipient"] = stringProperty("Age public recipient generated or used.")
@@ -131,14 +108,11 @@ func OutputSchema(name string) (map[string]any, bool) {
 		props["next_required_action"] = stringProperty("Required model action after get_many.")
 		props["template_id"] = stringProperty("Workflow template id returned by publish or retire.")
 		props["template_summary"] = objectProperty("Compact workflow template summary returned by publish, retire, and list items.")
-		props["count"] = integerProperty("Returned item count.")
-		props["workflow_dir"] = stringProperty("Workflow template registry directory.")
 		props["candidates"] = arrayObjects("Matched workflow template candidates with scores and reasons.")
 		props["vector_search_enabled"] = booleanProperty("Whether optional embedding-backed template vector search is enabled for match.")
 		props["vector_index_status"] = stringProperty("Template vector index status: disabled, ready, or degraded.")
 		props["vector_index_items"] = integerProperty("Number of persisted template vectors for the current embedding model.")
 		props["vector_index_available"] = booleanProperty("Whether workflow vector index content is available for export.")
-		props["content"] = stringProperty("Raw workflow vector index JSON returned by vector_index.")
 		props["embedding_model"] = stringProperty("Embedding model configured for template vector search.")
 		props["recommended"] = stringProperty("Template recommendation: use_template, consider_template, or plain_task.")
 		props["recommendation_reason"] = stringProperty("Reason for recommendation.")
@@ -153,22 +127,13 @@ func OutputSchema(name string) (map[string]any, bool) {
 	return map[string]any{"type": "object", "properties": props, "required": []string{}, "additionalProperties": true}, true
 }
 
-func projectContextDeliverySchema() map[string]any {
-	return strictObject(map[string]any{
-		"status":           enumProperty("Verified Project Context delivery state. returned means Nexus returned the complete model-visible tool result; host_consumed requires an explicit MCP Host acknowledgment for the same revision.", "returned", "host_consumed"),
-		"context_revision": stringProperty("Context revision this delivery state refers to."),
-	}, "status", "context_revision")
-}
-
 func projectSummarySchema() map[string]any {
 	return strictObject(map[string]any{
 		"id":                         stringProperty("Stable Project id."),
 		"name":                       stringProperty("Project display name."),
-		"revision":                   stringProperty("Opaque Project configuration revision."),
-		"enabled":                    booleanProperty("Whether the Project may be entered."),
 		"deployment_count":           integerProperty("Configured Deployment count."),
 		"available_deployment_count": integerProperty("Deployments currently eligible to become WorkSession Targets."),
-	}, "id", "name", "revision", "enabled", "deployment_count", "available_deployment_count")
+	}, "id", "name", "deployment_count", "available_deployment_count")
 }
 
 func projectSchema() map[string]any {
@@ -176,9 +141,7 @@ func projectSchema() map[string]any {
 		"id":                   stringProperty("Stable Project id."),
 		"name":                 stringProperty("Project display name."),
 		"orchestration_policy": stringProperty("User-authored multi-node collaboration guidance. It never expands hard permissions."),
-		"revision":             stringProperty("Opaque Project configuration revision."),
-		"enabled":              booleanProperty("Whether the Project may be entered."),
-	}, "id", "name", "orchestration_policy", "revision", "enabled")
+	}, "id", "name", "orchestration_policy")
 }
 
 func deploymentPermissionsSchema() map[string]any {
@@ -195,36 +158,25 @@ func deploymentPermissionsSchema() map[string]any {
 func deploymentViewSchema() map[string]any {
 	return strictObject(map[string]any{
 		"id":                  stringProperty("Stable Deployment id."),
-		"project_id":          stringProperty("Owning Project id."),
-		"node_id":             stringProperty("Bound AgentDock node id."),
 		"working_folder":      stringProperty("Optional Node-local Project Folder. Empty means use the Node AgentDock default cwd and do not auto-discover Project AGENTS.md."),
 		"role":                stringProperty("User-authored short role label; not an authorization role."),
 		"purpose":             stringProperty("User-authored description of when this environment is useful."),
 		"permissions":         deploymentPermissionsSchema(),
-		"desired_revision":    stringProperty("Desired Deployment configuration revision."),
-		"applied_revision":    stringProperty("Revision currently applied by the AgentDock node."),
-		"enabled":             booleanProperty("Whether this Deployment may become a new Target."),
-		"apply_status":        enumProperty("Deployment apply state.", "draft", "pending", "applied", "failed", "disabled"),
-		"online":              booleanProperty("Whether the bound AgentDock node is currently online."),
 		"availability_status": stringProperty("Preparation status or explicit reason this Deployment cannot become a Target."),
 		"last_error":          stringProperty("Safe latest apply or preparation error; empty when none."),
-	}, "id", "project_id", "node_id", "working_folder", "role", "purpose", "permissions", "desired_revision", "applied_revision", "enabled", "apply_status", "online", "availability_status", "last_error")
+	}, "id", "working_folder", "role", "purpose", "permissions", "availability_status")
 }
 
 func projectPromptSchema() map[string]any {
 	source := strictObject(map[string]any{
 		"path":    stringProperty("AGENTS.md path relative to the Deployment working folder."),
 		"scope":   stringProperty("Project-relative directory scope where this source applies."),
-		"sha256":  stringProperty("SHA-256 digest of the complete source body."),
-		"bytes":   integerProperty("Complete UTF-8 source byte length."),
 		"content": stringProperty("Complete source body. Successful complete=true results never silently truncate it."),
-	}, "path", "scope", "sha256", "bytes", "content")
+	}, "path", "scope", "content")
 	return strictObject(map[string]any{
-		"prompt_revision": stringProperty("Revision derived from the ordered complete applicable AGENTS.md source set."),
-		"complete":        booleanProperty("Whether every applicable source was loaded and returned completely."),
-		"bytes":           integerProperty("Total UTF-8 bytes of complete applicable source bodies."),
-		"sources":         map[string]any{"type": "array", "items": source},
-	}, "prompt_revision", "complete", "bytes", "sources")
+		"complete": booleanProperty("Whether every applicable source was loaded and returned completely."),
+		"sources":  map[string]any{"type": "array", "items": source},
+	}, "complete", "sources")
 }
 
 func sourceProvenanceSchema() map[string]any {
@@ -241,19 +193,12 @@ func sourceProvenanceSchema() map[string]any {
 
 func workTargetSchema() map[string]any {
 	return strictObject(map[string]any{
-		"target_id":           stringProperty("Stable Target id within this WorkSession."),
-		"work_session_id":     stringProperty("Owning WorkSession id."),
-		"project_id":          stringProperty("Bound Project id."),
-		"deployment_id":       stringProperty("Bound Deployment id."),
-		"node_id":             stringProperty("Node resolved from the bound Deployment."),
-		"cwd_rel":             stringProperty("Current Project-relative Target working directory."),
-		"deployment_revision": stringProperty("Deployment revision this Target is authorized against."),
-		"context_revision":    stringProperty("Revision of Project/Deployment/cwd/Prompt context returned for this Target."),
-		"status":              enumProperty("Target state.", "preparing", "ready", "running", "idle", "unavailable", "context_error", "revoked"),
-		"permissions":         deploymentPermissionsSchema(),
-		"prompt":              projectPromptSchema(),
-		"source_provenance":   sourceProvenanceSchema(),
-	}, "target_id", "work_session_id", "project_id", "deployment_id", "node_id", "cwd_rel", "deployment_revision", "context_revision", "status", "permissions", "prompt", "source_provenance")
+		"target_id":     stringProperty("Stable Target id within this WorkSession."),
+		"deployment_id": stringProperty("Bound Deployment id."),
+		"cwd_rel":       stringProperty("Current Project-relative Target working directory."),
+		"status":        enumProperty("Target state.", "preparing", "ready", "running", "idle", "unavailable", "context_error", "revoked"),
+		"prompt":        projectPromptSchema(),
+	}, "target_id", "deployment_id", "cwd_rel", "status", "prompt")
 }
 
 func LocalAgentDockContextOutputSchema() map[string]any {

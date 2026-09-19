@@ -30,7 +30,7 @@ func TestCommandOutcomeRoundTripRetainsExecutionIdentityAndZeroExit(t *testing.T
 		ExecutionContext: ExecutionContext{WorkSessionID: "ws_1", TargetID: "target_1", ProjectID: "project_1", DeploymentID: "deployment_1", DeploymentRevision: "dep_rev_2", ContextRevision: "ctx_rev_3"},
 		State:            CommandOutcomeCompleted, ExitCode: &zero, Stdout: "durable output", Stderr: "warning", StdoutDroppedBytes: 10,
 		StartedAt: "2026-09-13T10:00:00Z", FinishedAt: "2026-09-13T10:00:01Z", UpdatedAt: "2026-09-13T10:00:01Z", PendingReport: true,
-		ClientRequestID: "request_1", ArgumentsDigest: "sha256-digest",
+		ClientRequestID: "request_1",
 	}
 	encoded, err := json.Marshal(original)
 	if err != nil {

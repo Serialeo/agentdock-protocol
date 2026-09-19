@@ -125,7 +125,7 @@ func TestContinuationTypedResultsFitPublishedSchemas(t *testing.T) {
 		EventID: "event_1", CommandSessionID: "cmd_1", ExecutionContext: protocol.ExecutionContext{WorkSessionID: "ws_1", TargetID: "target_1", ProjectID: "project_1", DeploymentID: "dep_1", DeploymentRevision: "dr_1", ContextRevision: "cr_1"},
 		State: protocol.CommandOutcomeCompleted, ExitCode: &zero, Stdout: "hello", Stderr: "warning", Output: "summary", OutputRef: "artifact_1", OutputTruncated: true,
 		StdoutDroppedBytes: 3, StderrDroppedBytes: 4, Workdir: "/project", CommandError: "diagnostic", TimedOut: true,
-		StartedAt: "start", FinishedAt: "finish", UpdatedAt: "update", PendingReport: true, ClientRequestID: "request_1", ArgumentsDigest: "digest",
+		StartedAt: "start", FinishedAt: "finish", UpdatedAt: "update", PendingReport: true, ClientRequestID: "request_1",
 	}
 	result := protocol.WorkContinuationResult{
 		WorkSessionID: "ws_1", EndpointID: "ep_1", ControllerGeneration: 1, BindingID: "binding_1", LeaseExpiresAt: "lease", WakeID: "wake_1", AttemptID: "attempt_1",
@@ -147,8 +147,25 @@ func TestContinuationTypedResultsFitPublishedSchemas(t *testing.T) {
 		if err := json.Unmarshal(data, &value); err != nil {
 			t.Fatal(err)
 		}
+		stripInternalContinuationFields(value)
 		schema, _ := OutputSchema(name)
 		assertDeclaredShape(t, name, schema, value)
+	}
+}
+
+func stripInternalContinuationFields(value any) {
+	switch typed := value.(type) {
+	case map[string]any:
+		for _, key := range []string{"context_revision", "deployment_revision", "arguments_digest"} {
+			delete(typed, key)
+		}
+		for _, child := range typed {
+			stripInternalContinuationFields(child)
+		}
+	case []any:
+		for _, child := range typed {
+			stripInternalContinuationFields(child)
+		}
 	}
 }
 

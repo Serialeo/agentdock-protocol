@@ -57,6 +57,9 @@ const (
 	// ProjectContextAckMetaKey is reserved for explicit MCP Host acknowledgments.
 	// It belongs in CallTool request _meta, never in model-controlled tool arguments.
 	ProjectContextAckMetaKey = "io.nexusdock/project-context-ack"
+	// ProjectContextDeliveryMetaKey carries the exact delivery identity back to the
+	// MCP Host without exposing internal revisions in model-visible tool content.
+	ProjectContextDeliveryMetaKey = "io.nexusdock/project-context-delivery"
 )
 
 type ProjectContextDelivery struct {

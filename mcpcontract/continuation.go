@@ -155,13 +155,13 @@ func continuationStateSchema() map[string]any {
 
 func commandOutcomeSchema() map[string]any {
 	executionProps := map[string]any{}
-	for _, key := range []string{"work_session_id", "target_id", "project_id", "deployment_id", "deployment_revision", "context_revision"} {
+	for _, key := range []string{"work_session_id", "target_id", "project_id", "deployment_id"} {
 		executionProps[key] = stringProperty("Execution-time identity resolved by Nexus from the authorized Target.")
 	}
 	props := map[string]any{
 		"event_id":             continuationID("Stable execution event; deduplicated with authenticated node identity."),
 		"command_session_id":   continuationID("Durable command session identity."),
-		"execution_context":    strictObject(executionProps, "work_session_id", "target_id", "project_id", "deployment_id", "deployment_revision", "context_revision"),
+		"execution_context":    strictObject(executionProps, "work_session_id", "target_id", "project_id", "deployment_id"),
 		"state":                enumProperty("Execution fact; interrupted or outcome_unknown never instructs automatic rerun.", "starting", "running", "completed", "failed", "interrupted", "outcome_unknown"),
 		"exit_code":            integerProperty("Known process exit code; omitted for unknown or nonterminal execution."),
 		"output_truncated":     booleanProperty("Whether output snapshots were truncated."),
@@ -170,7 +170,7 @@ func commandOutcomeSchema() map[string]any {
 		"timed_out":            booleanProperty("Whether the execution timeout elapsed."),
 		"pending_report":       booleanProperty("Whether the node still needs a durable Nexus acknowledgment."),
 	}
-	for _, key := range []string{"output", "output_ref", "stdout", "stderr", "workdir", "command_error", "started_at", "finished_at", "updated_at", "client_request_id", "arguments_digest"} {
+	for _, key := range []string{"output", "output_ref", "stdout", "stderr", "workdir", "command_error", "started_at", "finished_at", "updated_at", "client_request_id"} {
 		props[key] = stringProperty("Durable execution result metadata; output is replayable, not a live session cursor.")
 	}
 	return strictObject(props, "event_id", "command_session_id", "execution_context", "state", "output_truncated", "started_at", "updated_at", "pending_report")

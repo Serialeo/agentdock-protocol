@@ -140,14 +140,8 @@ func TestProjectOutputCarriesCompletePromptSources(t *testing.T) {
 
 	openSchema, _ := OutputSchema(ToolProjectOpen)
 	openProps := openSchema["properties"].(map[string]any)
-	for _, field := range []string{"context_revision", "delivery"} {
-		if _, exists := openProps[field]; !exists {
-			t.Fatalf("project_open output missing %q", field)
-		}
-	}
-	openDelivery := openProps["delivery"].(map[string]any)
-	if openDelivery["additionalProperties"] != false {
-		t.Fatalf("project_open delivery must be strict: %#v", openDelivery)
+	if _, exists := openProps["delivery"]; exists {
+		t.Fatal("project_open model output must not expose Host delivery state")
 	}
 
 	schema, ok := OutputSchema(ToolProjectContext)
@@ -155,38 +149,44 @@ func TestProjectOutputCarriesCompletePromptSources(t *testing.T) {
 		t.Fatal("missing project_context output schema")
 	}
 	contextProps := schema["properties"].(map[string]any)
-	for _, field := range []string{"project", "deployment", "target", "delivery"} {
+	for _, field := range []string{"project", "deployment", "target"} {
 		if _, exists := contextProps[field]; !exists {
 			t.Fatalf("project_context output missing %q", field)
 		}
 	}
-	delivery := contextProps["delivery"].(map[string]any)
-	deliveryProps := delivery["properties"].(map[string]any)
-	for _, field := range []string{"status", "context_revision"} {
-		if _, exists := deliveryProps[field]; !exists {
-			t.Fatalf("Project delivery schema missing %q", field)
-		}
+	if _, exists := contextProps["delivery"]; exists {
+		t.Fatal("project_context model output must not expose Host delivery state")
 	}
 	target := contextProps["target"].(map[string]any)
 	prompt := target["properties"].(map[string]any)["prompt"].(map[string]any)
 	promptProps := prompt["properties"].(map[string]any)
-	for _, field := range []string{"prompt_revision", "complete", "bytes", "sources"} {
+	for _, field := range []string{"complete", "sources"} {
 		if _, exists := promptProps[field]; !exists {
 			t.Fatalf("project prompt schema missing %q", field)
 		}
 	}
+	if _, exists := promptProps["bytes"]; exists {
+		t.Fatal("project prompt schema exposed byte telemetry")
+	}
 	source := promptProps["sources"].(map[string]any)["items"].(map[string]any)
 	sourceProps := source["properties"].(map[string]any)
-	for _, field := range []string{"path", "scope", "sha256", "bytes", "content"} {
+	for _, field := range []string{"path", "scope", "content"} {
 		if _, exists := sourceProps[field]; !exists {
 			t.Fatalf("project prompt source schema missing %q", field)
 		}
 	}
-	provenance := target["properties"].(map[string]any)["source_provenance"].(map[string]any)
-	provenanceProps := provenance["properties"].(map[string]any)
-	for _, field := range []string{"kind", "repository_root", "head", "branch", "detached", "unborn", "dirty"} {
-		if _, exists := provenanceProps[field]; !exists {
-			t.Fatalf("source provenance schema missing %q", field)
+	if _, exists := sourceProps["bytes"]; exists {
+		t.Fatal("project prompt source schema exposed byte telemetry")
+	}
+	for _, field := range []string{"work_session_id", "project_id", "node_id", "permissions", "context_revision", "deployment_revision", "source_provenance"} {
+		if _, exists := target["properties"].(map[string]any)[field]; exists {
+			t.Fatalf("model-visible target unexpectedly exposes redundant/internal field %q", field)
+		}
+	}
+	deployment := contextProps["deployment"].(map[string]any)
+	for _, field := range []string{"project_id", "node_id", "enabled", "apply_status", "online"} {
+		if _, exists := deployment["properties"].(map[string]any)[field]; exists {
+			t.Fatalf("model-visible deployment unexpectedly exposes redundant field %q", field)
 		}
 	}
 }

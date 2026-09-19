@@ -59,7 +59,6 @@ type CommandOutcome struct {
 	UpdatedAt          string              `json:"updated_at"`
 	PendingReport      bool                `json:"pending_report"`
 	ClientRequestID    string              `json:"client_request_id,omitempty"`
-	ArgumentsDigest    string              `json:"arguments_digest,omitempty"`
 }
 
 // CommandOutcomesReadRequest reads a bounded snapshot. Explicit session IDs take
